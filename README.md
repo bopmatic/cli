@@ -1,0 +1,2 @@
+# cli
+Bopmatic CLI
