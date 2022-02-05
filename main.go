@@ -7,30 +7,22 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"net"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	_ "embed"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	dockerClient "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 
 	bopsdk "github.com/bopmatic/sdk/golang"
+	"github.com/bopmatic/sdk/golang/util"
+
 	"gopkg.in/yaml.v2"
 )
-
-const defaultProjectFilename = "Bopmatic.yaml"
-const buildImageName = "bopmatic/build:latest"
 
 type commonOpts struct {
 	projectFilename string
@@ -74,14 +66,7 @@ func buildMain(args []string) {
 		os.Exit(0)
 	}
 
-	err = os.Chdir(proj.Desc.Root)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to chdir %v: %v\n", proj.Desc.Root, err)
-		os.Exit(1)
-	}
-
-	err = runContainerCommand([]string{proj.Desc.BuildCmd}, os.Stdout,
-		os.Stderr)
+	err = proj.Build(os.Stdout, os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to build %v: %v\n", proj.Desc.Name, err)
 		os.Exit(1)
@@ -160,7 +145,7 @@ func configMain(args []string) {
 		file.Close()
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse existing %v: %w; Removing...",
+			fmt.Fprintf(os.Stderr, "Failed to parse existing %v: %v; Removing...",
 				credsPath, err)
 			_ = os.Remove(credsPath)
 		}
@@ -191,7 +176,12 @@ func configMain(args []string) {
 		os.Exit(1)
 	}
 
-	if hasBopmaticBuildImage() {
+	haveBuildImg, err := util.HasBopmaticBuildImage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if !haveBuildImg {
 		fmt.Printf("Update Bopmatic Build Image? (Y/N) [Y]: ")
 	} else {
 		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 1GiB in size.\n")
@@ -206,19 +196,18 @@ func configMain(args []string) {
 	}
 }
 
-const dockerInstallErrMsg = "Could not invoke docker; please double check that you have docker installed: %v\n"
-
 func pullBopmaticImage() {
 	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv,
 
 		dockerClient.WithAPIVersionNegotiation())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, dockerInstallErrMsg, err)
+		err := fmt.Errorf(util.DockerInstallErrMsg, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	reader, err := cli.ImagePull(context.Background(), buildImageName,
-		types.ImagePullOptions{})
+	reader, err := cli.ImagePull(context.Background(),
+		util.BopmaticBuildImageName, types.ImagePullOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to pull image: %v", err)
 		os.Exit(1)
@@ -263,139 +252,6 @@ func pullBopmaticImage() {
 	}
 }
 
-func hasBopmaticBuildImage() bool {
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv,
-		dockerClient.WithAPIVersionNegotiation())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, dockerInstallErrMsg, err)
-		os.Exit(1)
-	}
-
-	ctx := context.Background()
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelFunc()
-
-	images, err := cli.ImageList(ctx, types.ImageListOptions{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to list images: %v", err)
-		os.Exit(1)
-	}
-
-	for _, img := range images {
-		for _, tag := range img.RepoTags {
-			if tag == buildImageName {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func runContainerCommand(cmdAndArgs []string, stdOut io.Writer,
-	stdErr io.Writer) error {
-
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv,
-		dockerClient.WithAPIVersionNegotiation())
-	if err != nil {
-		return fmt.Errorf(dockerInstallErrMsg, err)
-	}
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("Could not get current working dir: %w", err)
-	}
-
-	hostConfig := &container.HostConfig{
-		AutoRemove: true,
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: pwd,
-				Target: pwd,
-			},
-		},
-	}
-
-	containerConfig := &container.Config{
-		User:       fmt.Sprintf("%v:%v", os.Geteuid(), os.Getegid()),
-		Cmd:        cmdAndArgs,
-		Image:      buildImageName,
-		WorkingDir: pwd,
-	}
-
-	ctx := context.Background()
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil,
-		nil, "")
-	if err != nil {
-		return fmt.Errorf("Failed to create container: %w", err)
-	}
-
-	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-	if err != nil {
-		return fmt.Errorf("Failed to run container: %w", err)
-	}
-
-	logOutputOpts := types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Follow:     true,
-	}
-	logOutput, err := cli.ContainerLogs(ctx, resp.ID, logOutputOpts)
-	if err != nil {
-		return fmt.Errorf("Failed to get container output: %w", err)
-	}
-	defer logOutput.Close()
-
-	// the container's stdout and stderr are muxed into a Docker specific
-	// output format; so we demux them here
-	stdcopy.StdCopy(stdOut, stdErr, logOutput)
-
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID,
-		container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			return fmt.Errorf("Container run failed: %w\n", err)
-		}
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			return fmt.Errorf("%v failed with status:%v", cmdAndArgs[0],
-				status.StatusCode)
-		}
-	}
-
-	return nil
-}
-
-func isGoodProjectName(projectName string) bool {
-	if projectName == "" {
-		return false
-	}
-	projectName = strings.ToLower(projectName)
-	url, err := url.ParseRequestURI("https://" + projectName + ".bopmatic.com")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Sorry %v.bopmatic.com is not a valid endpoint\n",
-			projectName)
-		return false
-	}
-	_, err = net.LookupIP(url.Host)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "Sorry %v is already taken\n", url.Host)
-		return false
-	}
-
-	_, err = os.Stat(projectName)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "Sorry %v already exists in your current directory\n",
-			projectName)
-
-		return false
-	} // else
-
-	return true
-}
-
 type ProjTemplate struct {
 	name    string
 	srcPath string
@@ -419,7 +275,12 @@ func selectProjectTemplateIdx(tmplNameIn string,
 }
 
 func newMain(args []string) {
-	if !hasBopmaticBuildImage() {
+	haveBuildImg, err := util.HasBopmaticBuildImage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if !haveBuildImg {
 		fmt.Fprintf(os.Stderr, "Could not find Bopmatic Build Image; please run:\n\n\tbopmatic config\n")
 		os.Exit(1)
 	}
@@ -427,8 +288,9 @@ func newMain(args []string) {
 	// 1 fetch templates from Bopmatic Build Image
 	var templateList []ProjTemplate
 	templateListBuf := new(bytes.Buffer)
-	err := runContainerCommand([]string{"ls", "/bopmatic/examples/golang"},
-		templateListBuf, os.Stderr)
+	ctx := context.Background()
+	err = util.RunContainerCommand(ctx,
+		[]string{"ls", "/bopmatic/examples/golang"}, templateListBuf, os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to retrieve list of templates: %v\n",
 			err)
@@ -446,10 +308,16 @@ func newMain(args []string) {
 
 	// 2 get user inputs
 	var projectName string
-	for !isGoodProjectName(projectName) {
+	for {
 		fmt.Printf("Enter Bopmatic Project Name []: ")
 		fmt.Scanf("%s", &projectName)
 		projectName = strings.TrimSpace(projectName)
+		isGoodName, reason := bopsdk.IsGoodProjectName(projectName)
+		if isGoodName {
+			break
+		} else {
+			fmt.Fprintf(os.Stderr, "%v\n", reason)
+		}
 	}
 
 	fmt.Printf("Available project templates:\n")
@@ -470,7 +338,7 @@ func newMain(args []string) {
 	}
 
 	// 3 copy project from template
-	err = runContainerCommand([]string{"cp", "-r",
+	err = util.RunContainerCommand(ctx, []string{"cp", "-r",
 		templateList[selectedTmplIdx].srcPath, "./" + projectName}, os.Stdout,
 		os.Stderr)
 	if err != nil {
@@ -485,8 +353,8 @@ func newMain(args []string) {
 
 	// @todo find a cleaner way to replace the project name
 	sedSwapExpr := fmt.Sprintf("s/  name.*/  name: \"%v\"/", projectName)
-	err = runContainerCommand([]string{"sed", "-i", sedSwapExpr, projectFile},
-		os.Stdout, os.Stderr)
+	err = util.RunContainerCommand(ctx, []string{"sed", "-i", sedSwapExpr,
+		projectFile}, os.Stdout, os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
 			err)
@@ -513,7 +381,7 @@ func versionMain(args []string) {
 }
 
 func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
-	f.StringVar(&o.projectFilename, "projfile", defaultProjectFilename,
+	f.StringVar(&o.projectFilename, "projfile", bopsdk.DefaultProjectFilename,
 		"Bopmatic project filename")
 }
 

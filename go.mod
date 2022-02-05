@@ -3,7 +3,7 @@ module github.com/bopmatic/cli
 go 1.17
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20220203160209-a438fe375e1c
+	github.com/bopmatic/sdk/golang v0.0.0-20220205025022-adcd9855ebe3
 	github.com/docker/docker v20.10.12+incompatible
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -18,7 +18,6 @@ require (
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
