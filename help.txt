@@ -8,9 +8,10 @@ This will prompt you to create a new project in your language of choice.
 
 The most common commands from there are:
 
-    - bopmatic build   : Build your project locally
-    - bopmatic deploy  : Send your project to Bopmatic ServiceRunner for deployment
-    - bopmatic destroy : Remove a previously sent deployment from Bopmatic ServiceRunner
+    - bopmatic package build    : Build your project locally
+    - bopmatic package deploy   : Send your project to Bopmatic ServiceRunner for deployment
+    - bopmatic package describe : Request details regarding your deployed package
+    - bopmatic package destroy  : Remove a previously sent deployment from Bopmatic ServiceRunner
 
 For more information, please visit the project page: https://www.bopmatic.com/docs/
 
@@ -19,9 +20,8 @@ Usage:
 
 Available Commands:
   describe       Describe the contents of a Bopmatic project
-  build          Compile an existing Bopmatic project
-  deploy         Deploy a local Bopmatic project to Bopmatic ServiceRunner
-  destroy        Remove a prior deployment from Bopmatic ServiceRunner
+  package        Create, Deploy, Destroy, or List Bopmatic project packages
+                   run 'bopmatic package help' for more details
   help           This help screen
   config         Set Bopmatic configuration
   new            Create a new Bopmatic project

@@ -11,6 +11,7 @@ test: build FORCE
 
 go.sum vendor: go.mod
 	go mod vendor
+	go mod tidy
 
 version.txt:
 	git describe --tags > version.txt
