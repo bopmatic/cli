@@ -3,7 +3,7 @@ module github.com/bopmatic/cli
 go 1.17
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20220214193827-375fb901a24d
+	github.com/bopmatic/sdk/golang v0.0.0-20220214221847-7703dea04967
 	github.com/docker/docker v20.10.12+incompatible
 )
 

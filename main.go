@@ -201,18 +201,10 @@ func pkgDestroyMain(args []string) {
 		fmt.Fprintf(os.Stderr, "Please specify package id with --pkgid. If you don't know this, try 'bopmatic list'\n")
 		os.Exit(1)
 	}
-	if opts.common.projectName == "" {
-		proj, err := bopsdk.NewProject(opts.common.projectFilename)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Please specify project name name with --projname. If you don't know this, try 'bopmatic list'\n")
-			os.Exit(1)
-		}
-		opts.common.projectName = proj.Desc.Name
-	}
 
 	fmt.Printf("Destroying project:%v pkgId:%v...",
 		opts.common.projectName, opts.common.packageId)
-	err = bopsdk.Delete(opts.common.projectName, opts.common.packageId,
+	err = bopsdk.Delete(opts.common.packageId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
