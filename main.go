@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "embed"
 
@@ -169,7 +170,7 @@ func pkgDeployMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully started deploying pkgId:%v. You can check progress with 'bopmatic describe'\n",
+	fmt.Printf("Started\nYou can check deploy progress with:\n\t'bopmatic package describe --pkgid %v'\n",
 		pkg.Id)
 }
 
@@ -252,12 +253,13 @@ func pkgListMain(args []string) {
 		}
 	}
 
-	if opts.common.projectName == "" {
-		fmt.Printf("Listing packages for all projects...")
-	} else {
-		fmt.Printf("Listing packages for project %v...",
-			opts.common.projectName)
-	}
+	// @todo project filter not yet implemented
+	//if opts.common.projectName == "" {
+	fmt.Printf("Listing packages for all projects...")
+	//} else {
+	//	fmt.Printf("Listing packages for project %v...",
+	//		opts.common.projectName)
+	//}
 
 	pkgs, err := bopsdk.List(opts.common.projectName,
 		bopsdk.DeployOptHttpClient(httpClient))
@@ -267,12 +269,12 @@ func pkgListMain(args []string) {
 	}
 
 	if len(pkgs) == 0 {
-		fmt.Printf("No currently deployed packages")
+		fmt.Printf("\nNo currently deployed packages\n")
 	} else {
-		fmt.Printf("Project\tPackageId\n")
+		fmt.Printf("\nProject\t\tPackageId\n")
 
 		for _, pkg := range pkgs {
-			fmt.Printf("%v\t%v\n", pkg.ProjectName, pkg.PackageId)
+			fmt.Printf("%v\t\t%v\n", pkg.ProjectName, pkg.PackageId)
 		}
 	}
 }
@@ -320,7 +322,7 @@ func pkgDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Project:%v PackageId:%v:\n\tState:%v\n",
+	fmt.Printf("\nProject:%v PackageId:%v State:%v\n",
 		descReply.Desc.ProjectName, descReply.Desc.PackageId,
 		descReply.PackageState)
 	if descReply.PackageState == pb.PackageState_PRODUCTION {
@@ -673,6 +675,7 @@ func getHttpClientFromCreds() (*http.Client, error) {
 	}
 
 	return &http.Client{
+		Timeout: time.Second * 30,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs:      caCertPool,
