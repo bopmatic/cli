@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -163,6 +164,19 @@ func pkgDeployMain(args []string) {
 		}
 	}
 
+	fmt.Printf("Checking for existing packages...")
+	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if len(pkgs) > 0 {
+		fmt.Fprintf(os.Stderr, "\nYou have existing uploaded packages; Bopmatic Tech Preview is currently limiting users to 1 deployed package at a time. Please delete first with:\n\t'bopmatic package destroy --pkgid %v'\n",
+			pkgs[0].PackageId)
+		fmt.Fprintf(os.Stderr, "\nUpdating an existing deployed project with a new package without first destroying will be supported in a subsequent release.\n")
+		os.Exit(1)
+	}
+
 	fmt.Printf("Deploying pkgId:%v (%v)...", pkg.Id, pkg.AbsTarballPath())
 	err = pkg.Deploy(bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
@@ -170,7 +184,7 @@ func pkgDeployMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Started\nYou can check deploy progress with:\n\t'bopmatic package describe --pkgid %v'\n",
+	fmt.Printf("Started\nDeploying takes about 10 minutes. You can check deploy progress with:\n\t'bopmatic package describe --pkgid %v'\n",
 		pkg.Id)
 }
 
@@ -202,17 +216,69 @@ func pkgDestroyMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Destroying project:%v pkgId:%v...",
-		opts.common.projectName, opts.common.packageId)
-	err = bopsdk.Delete(opts.common.packageId,
+	fmt.Printf("Checking for existing packages...")
+	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	found := false
+	for _, pkg := range pkgs {
+		if pkg.PackageId == opts.common.packageId {
+			found = true
+		}
+	}
+	if !found {
+		fmt.Printf("\nPackage id %v no longer exists; you can upload a new one with:\n\t'bopmatic package deploy'\n",
+			opts.common.packageId)
+		os.Exit(1)
+	}
+
+	fmt.Printf("ok. Checking existing pkgId:%v status...", opts.common.packageId)
+	descReply, err := bopsdk.Describe(opts.common.packageId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Printf("Successfully started destroying project %v pkgId:%v. You can check progress with 'bopmatic describe'\n",
-		opts.common.projectName, opts.common.packageId)
+	switch descReply.PackageState {
+	case pb.PackageState_UPLOADING:
+		fallthrough
+	case pb.PackageState_UPLOADED:
+		fallthrough
+	case pb.PackageState_VALIDATING:
+		fallthrough
+	case pb.PackageState_BUILDING:
+		fallthrough
+	case pb.PackageState_DEPLOYING:
+		fmt.Printf("ok.\nBopmatic ServiceRunner is currently deploying pkgid:%v; please try deleting again later once this has completed.\n",
+			opts.common.packageId)
+		os.Exit(1)
+	case pb.PackageState_INVALID:
+		fallthrough
+	case pb.PackageState_PRODUCTION:
+		fmt.Printf("ok.\nDestroying pkgId:%v...", opts.common.packageId)
+		err = bopsdk.Delete(opts.common.packageId,
+			bopsdk.DeployOptHttpClient(httpClient))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("\nSuccessfully started destroying pkgId:%v. Teardown takes about 10 minutes. You can check progress with:\n\t'bopmatic package describe --pkgid %v'\n",
+			opts.common.packageId, opts.common.packageId)
+	case pb.PackageState_DEACTIVATING:
+		fallthrough
+	case pb.PackageState_DELETING:
+		fmt.Printf("ok.\nBopmatic ServiceRunner is already destroying pkgid:%v. You can check progress with:\n\t'bopmatic package describe --pkgid %v'\n",
+			opts.common.packageId, opts.common.packageId)
+		os.Exit(1)
+	case pb.PackageState_SUPPORT_NEEDED:
+		fallthrough
+	case pb.PackageState_UNKNOWN_PKG_STATE:
+		fallthrough
+	default:
+		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
+	}
 }
 
 func pkgListMain(args []string) {
@@ -306,6 +372,26 @@ func pkgDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
+	fmt.Printf("Listing packages...")
+	pkgs, err := bopsdk.List(opts.common.projectName,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	found := false
+	for _, pkg := range pkgs {
+		if pkg.PackageId == opts.common.packageId {
+			found = true
+		}
+	}
+
+	if !found {
+		fmt.Printf("\nPackage id %v no longer exists; you can upload a new one with:\n\t'bopmatic package deploy'\n",
+			opts.common.packageId)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Describing pkgId:%v...", opts.common.packageId)
 	descReply, err := bopsdk.Describe(opts.common.packageId,
 		bopsdk.DeployOptHttpClient(httpClient))
@@ -317,12 +403,37 @@ func pkgDescribeMain(args []string) {
 	fmt.Printf("\nProject:%v PackageId:%v State:%v\n",
 		descReply.Desc.ProjectName, descReply.Desc.PackageId,
 		descReply.PackageState)
-	if descReply.PackageState == pb.PackageState_PRODUCTION {
+	switch descReply.PackageState {
+	case pb.PackageState_UPLOADING:
+		fmt.Printf("\nYour project is being uploaded to Bopmatic ServiceRunner\n")
+	case pb.PackageState_UPLOADED:
+		fmt.Printf("\nYour project package was uploaded Bopmatic ServiceRunner and will next be validated\n")
+	case pb.PackageState_VALIDATING:
+		fmt.Printf("\nBopmatic ServiceRunner is validating your project package\n")
+	case pb.PackageState_INVALID:
+		fmt.Printf("\nSomething is wrong with your project package and it cannot be deployed. Please delete it with:\n\t'bopmatic destroy --pkgid %v\n",
+			descReply.Desc.PackageId)
+	case pb.PackageState_BUILDING:
+		fmt.Printf("\nBopmatic ServiceRunner is building infrastructure for your project package\n")
+	case pb.PackageState_DEPLOYING:
+		fmt.Printf("\nBopmatic ServiceRunner is deploying infrastructure for your project package\n")
+	case pb.PackageState_PRODUCTION:
+		fmt.Printf("\nBopmatic ServiceRunner has deployed your project. Try it out:\n")
 		fmt.Printf("\tWebsite: %v\n", descReply.SiteEndpoint)
 		fmt.Printf("\tAPI Endpoints(%v):\n", len(descReply.RpcEndpoints))
 		for _, rpc := range descReply.RpcEndpoints {
 			fmt.Printf("\t\t%v\n", rpc)
 		}
+	case pb.PackageState_DEACTIVATING:
+		fmt.Printf("\nBopmatic ServiceRunner is currently removing your project package from production.\n")
+	case pb.PackageState_DELETING:
+		fmt.Printf("\nBopmatic ServiceRunner is currently deleting your project\n")
+	case pb.PackageState_SUPPORT_NEEDED:
+		fallthrough
+	case pb.PackageState_UNKNOWN_PKG_STATE:
+		fallthrough
+	default:
+		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
 	}
 }
 
@@ -440,7 +551,7 @@ func configMain(args []string) {
 	if haveBuildImg {
 		fmt.Printf("Update Bopmatic Build Image? (Y/N) [Y]: ")
 	} else {
-		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 700MiB(compressed) in size.\n")
+		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 620MiB(compressed) in size.\n")
 		fmt.Printf("Download Bopmatic Build Image? (Y/N) [Y]: ")
 	}
 	shouldDownload := "Y"
@@ -604,18 +715,54 @@ func newMain(args []string) {
 	}
 
 	// 4 set the created project's name
+	// @todo find a cleaner way to replace the project name
 	projectDir := filepath.Join(".", projectName)
 	projectFile := filepath.Join(projectDir, "Bopmatic.yaml")
-
-	// @todo find a cleaner way to replace the project name
-	sedSwapExpr := fmt.Sprintf("s/  name.*/  name: \"%v\"/", projectName)
-	err = util.RunContainerCommand(ctx, []string{"sed", "-i", sedSwapExpr,
-		projectFile}, os.Stdout, os.Stderr)
+	projectMakefile := filepath.Join(projectDir, "Makefile")
+	templateToken := filepath.Join(projectDir, "template_replace_keyword")
+	templateKeyword, err := ioutil.ReadFile(templateToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
 			err)
 		os.Exit(1)
 	}
+	projectFileContentBytes, err := ioutil.ReadFile(projectFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
+			err)
+		os.Exit(1)
+	}
+	projectFileContent := string(projectFileContentBytes)
+	projectFileContent = strings.ReplaceAll(projectFileContent,
+		string(templateKeyword), projectName)
+	projectFileContent = strings.ReplaceAll(projectFileContent,
+		strings.ToLower(string(templateKeyword)), strings.ToLower(projectName))
+	err = ioutil.WriteFile(projectFile, []byte(projectFileContent), 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
+			err)
+		os.Exit(1)
+	}
+
+	projectMakefileContentBytes, err := ioutil.ReadFile(projectMakefile)
+	if err == nil {
+		projectMakefileContent := string(projectMakefileContentBytes)
+		projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
+			string(templateKeyword), projectName)
+		projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
+			strings.ToLower(string(templateKeyword)), strings.ToLower(projectName))
+		err := ioutil.WriteFile(projectMakefile, []byte(projectMakefileContent), 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
+				err)
+			os.Exit(1)
+		}
+	} else if !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
+			err)
+		os.Exit(1)
+	}
+	_ = os.Remove(templateToken)
 
 	// 5 validate everything worked
 	proj, err := bopsdk.NewProject(projectFile)
