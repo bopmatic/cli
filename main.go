@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -122,6 +123,7 @@ func pkgBuildMain(args []string) {
 
 	fmt.Printf("Successfully built pkgId:%v (%v)\n", pkg.Id,
 		pkg.AbsTarballPath())
+	fmt.Printf("To deploy your package, next run:\n\t'bopmatic package deploy'\n")
 }
 
 func pkgDeployMain(args []string) {
@@ -600,6 +602,10 @@ func configMain(args []string) {
 
 	if strings.ToUpper(shouldDownload)[0] == 'Y' {
 		pullBopmaticImage()
+
+		if !haveBuildImg {
+			fmt.Printf("To create a bopmatic project, next run:\n\t'bopmatic new'\n")
+		}
 	}
 }
 
@@ -657,6 +663,8 @@ func pullBopmaticImage() {
 		fmt.Fprintf(os.Stderr, "Failed to pull image: %v", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf("Successfully pulled %v", util.BopmaticBuildImageName)
 }
 
 type ProjTemplate struct {
@@ -714,17 +722,10 @@ func newMain(args []string) {
 		ProjTemplate{name: "static_site", srcPath: "/bopmatic/examples/static_site"})
 
 	// 2 get user inputs
-	var projectName string
-	for {
-		fmt.Printf("Enter Bopmatic Project Name []: ")
-		fmt.Scanf("%s", &projectName)
-		projectName = strings.TrimSpace(projectName)
-		isGoodName, reason := bopsdk.IsGoodProjectName(projectName)
-		if isGoodName {
-			break
-		} else {
-			fmt.Fprintf(os.Stderr, "%v\n", reason)
-		}
+	user, err := user.Current()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to determine your username: %v", err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("Available project templates:\n")
@@ -742,6 +743,20 @@ func newMain(args []string) {
 		fmt.Printf("Enter Bopmatic Project Template [%v]: ", defaultTemplateName)
 		fmt.Scanf("%s", &templateName)
 		templateName = strings.TrimSpace(templateName)
+	}
+
+	var projectName string
+	for {
+		projectName = user.Username + templateName
+		fmt.Printf("Enter Bopmatic Project Name [%v]: ", projectName)
+		fmt.Scanf("%s", &projectName)
+		projectName = strings.TrimSpace(projectName)
+		isGoodName, reason := bopsdk.IsGoodProjectName(projectName)
+		if isGoodName {
+			break
+		} else {
+			fmt.Fprintf(os.Stderr, "%v\n", reason)
+		}
 	}
 
 	// 3 copy project from template
@@ -773,10 +788,17 @@ func newMain(args []string) {
 		os.Exit(1)
 	}
 	projectFileContent := string(projectFileContentBytes)
-	projectFileContent = strings.ReplaceAll(projectFileContent,
-		string(templateKeyword), projectName)
+
 	projectFileContent = strings.ReplaceAll(projectFileContent,
 		strings.ToLower(string(templateKeyword)), strings.ToLower(projectName))
+
+	hasUpperCase := (strings.ToLower(string(templateKeyword)) !=
+		string(templateKeyword))
+	if hasUpperCase {
+		projectFileContent = strings.ReplaceAll(projectFileContent,
+			string(templateKeyword), projectName)
+	}
+
 	err = ioutil.WriteFile(projectFile, []byte(projectFileContent), 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
@@ -788,9 +810,12 @@ func newMain(args []string) {
 	if err == nil {
 		projectMakefileContent := string(projectMakefileContentBytes)
 		projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
-			string(templateKeyword), projectName)
-		projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
-			strings.ToLower(string(templateKeyword)), strings.ToLower(projectName))
+			strings.ToLower(string(templateKeyword)),
+			strings.ToLower(projectName))
+		if hasUpperCase {
+			projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
+				string(templateKeyword), projectName)
+		}
 		err := ioutil.WriteFile(projectMakefile, []byte(projectMakefileContent), 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
@@ -814,6 +839,9 @@ func newMain(args []string) {
 
 	fmt.Printf("Successfully created .%v%v:\n%v", string(os.PathSeparator),
 		projectDir, proj.String())
+
+	fmt.Printf("\nTo build your new project next run:\n\t'cd %v; bopmatic package build'\n",
+		projectDir)
 }
 
 //go:embed version.txt
