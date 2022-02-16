@@ -164,18 +164,7 @@ func pkgDeployMain(args []string) {
 		}
 	}
 
-	fmt.Printf("Checking for existing packages...")
-	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	if len(pkgs) > 0 {
-		fmt.Fprintf(os.Stderr, "\nYou have existing uploaded packages; Bopmatic Tech Preview is currently limiting users to 1 deployed package at a time. Please delete first with:\n\t'bopmatic package destroy --pkgid %v'\n",
-			pkgs[0].PackageId)
-		fmt.Fprintf(os.Stderr, "\nUpdating an existing deployed project with a new package without first destroying will be supported in a subsequent release.\n")
-		os.Exit(1)
-	}
+	validateNoConflicts(httpClient, pkg)
 
 	fmt.Printf("Deploying pkgId:%v (%v)...", pkg.Id, pkg.AbsTarballPath())
 	err = pkg.Deploy(bopsdk.DeployOptHttpClient(httpClient))
@@ -186,6 +175,42 @@ func pkgDeployMain(args []string) {
 
 	fmt.Printf("Started\nDeploying takes about 10 minutes. You can check deploy progress with:\n\t'bopmatic package describe --pkgid %v'\n",
 		pkg.Id)
+}
+
+func validateNoConflicts(httpClient *http.Client, pkg *bopsdk.Package) {
+	fmt.Printf("Checking for project %v conflicts...", pkg.Proj.Desc.Name)
+
+	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	for _, existingPkg := range pkgs {
+		if pkg.Proj.Desc.Name != existingPkg.ProjectName {
+			continue
+		}
+
+		descReply, err := bopsdk.Describe(existingPkg.PackageId,
+			bopsdk.DeployOptHttpClient(httpClient))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		switch descReply.PackageState {
+		case pb.PackageState_INVALID:
+			fallthrough
+		case pb.PackageState_PRODUCTION:
+			continue
+		default:
+			fmt.Fprintf(os.Stderr, "\nExisting pkgid:%v for project %v is currently transitioning; please wait until this completes before attempting to deploy a new package for %v\n",
+				existingPkg.PackageId, existingPkg.ProjectName,
+				existingPkg.ProjectName)
+			fmt.Fprintf(os.Stderr, "You can monitor progress with:\n\t'bopmatic package describe --pkgid %v'\n",
+				existingPkg.PackageId)
+			os.Exit(1)
+		}
+	}
 }
 
 func pkgDestroyMain(args []string) {
@@ -418,12 +443,13 @@ func pkgDescribeMain(args []string) {
 	case pb.PackageState_DEPLOYING:
 		fmt.Printf("\nBopmatic ServiceRunner is deploying infrastructure for your project package\n")
 	case pb.PackageState_PRODUCTION:
-		fmt.Printf("\nBopmatic ServiceRunner has deployed your project. Try it out:\n")
+		fmt.Printf("\nBopmatic ServiceRunner has deployed your project. Try it out:\n\n")
 		fmt.Printf("\tWebsite: %v\n", descReply.SiteEndpoint)
 		fmt.Printf("\tAPI Endpoints(%v):\n", len(descReply.RpcEndpoints))
 		for _, rpc := range descReply.RpcEndpoints {
 			fmt.Printf("\t\t%v\n", rpc)
 		}
+		printExampleCurl(descReply)
 	case pb.PackageState_DEACTIVATING:
 		fmt.Printf("\nBopmatic ServiceRunner is currently removing your project package from production.\n")
 	case pb.PackageState_DELETING:
@@ -435,6 +461,20 @@ func pkgDescribeMain(args []string) {
 	default:
 		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
 	}
+}
+
+func printExampleCurl(descReply *pb.DescribePackageReply) {
+	if len(descReply.RpcEndpoints) == 0 {
+		return
+	}
+
+	firstApiUrl := descReply.RpcEndpoints[0]
+	fmt.Printf("\nYou can invoke your API directly from your shell via:\n")
+	fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	<req> %v\n",
+		firstApiUrl)
+	fmt.Printf("e.g.:\n")
+	fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	'{\"name\": \"somename\"}' %v\n",
+		firstApiUrl)
 }
 
 func describeMain(args []string) {
