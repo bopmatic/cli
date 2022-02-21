@@ -664,7 +664,7 @@ func pullBopmaticImage() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully pulled %v", util.BopmaticBuildImageName)
+	fmt.Printf("Successfully pulled %v\n", util.BopmaticBuildImageName)
 }
 
 type ProjTemplate struct {
@@ -719,7 +719,7 @@ func newMain(args []string) {
 		}
 	}
 	templateList = append(templateList,
-		ProjTemplate{name: "static_site", srcPath: "/bopmatic/examples/static_site"})
+		ProjTemplate{name: "staticsite", srcPath: "/bopmatic/examples/staticsite"})
 
 	// 2 get user inputs
 	user, err := user.Current()
