@@ -18,7 +18,7 @@ distribution, but have only been explicitly tested on Ubuntu 20.04
 LTS.
 
 ```bash
-$ wget https://github.com/bopmatic/cli/releases/download/v0.9.3/bopmatic
+$ wget https://github.com/bopmatic/cli/releases/download/v0.9.6/bopmatic
 $ chmod 755 bopmatic
 $ sudo mv bopmatic /usr/local/bin
 ```
