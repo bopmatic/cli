@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -707,15 +708,31 @@ func newMain(args []string) {
 	err = util.RunContainerCommand(ctx,
 		[]string{"ls", "/bopmatic/examples/golang"}, templateListBuf, os.Stderr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to retrieve list of templates: %v\n",
+		fmt.Fprintf(os.Stderr, "Failed to retrieve list of golang templates: %v\n",
 			err)
 		os.Exit(1)
 	}
 	for _, tmpl := range strings.Split(templateListBuf.String(), "\n") {
 		if tmpl != "" {
 			templateList = append(templateList,
-				ProjTemplate{name: tmpl,
+				ProjTemplate{name: "golang/" + tmpl,
 					srcPath: "/bopmatic/examples/golang/" + tmpl})
+		}
+	}
+
+	templateListBuf2 := new(bytes.Buffer)
+	err = util.RunContainerCommand(ctx,
+		[]string{"ls", "/bopmatic/examples/java"}, templateListBuf2, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to retrieve list of java templates: %v\n",
+			err)
+		os.Exit(1)
+	}
+	for _, tmpl := range strings.Split(templateListBuf2.String(), "\n") {
+		if tmpl != "" {
+			templateList = append(templateList,
+				ProjTemplate{name: "java/" + tmpl,
+					srcPath: "/bopmatic/examples/java/" + tmpl})
 		}
 	}
 	templateList = append(templateList,
@@ -737,7 +754,7 @@ func newMain(args []string) {
 	var selectedTmplIdx int
 	for selectedTmplIdx = -1; selectedTmplIdx == -1; selectedTmplIdx = selectProjectTemplateIdx(templateName, templateList) {
 
-		const defaultTemplateName = "helloworld"
+		const defaultTemplateName = "golang/helloworld"
 		templateName = defaultTemplateName
 
 		fmt.Printf("Enter Bopmatic Project Template [%v]: ", defaultTemplateName)
@@ -747,7 +764,7 @@ func newMain(args []string) {
 
 	var projectName string
 	for {
-		projectName = user.Username + templateName
+		projectName = user.Username + path.Base(templateName)
 		fmt.Printf("Enter Bopmatic Project Name [%v]: ", projectName)
 		fmt.Scanf("%s", &projectName)
 		projectName = strings.TrimSpace(projectName)
