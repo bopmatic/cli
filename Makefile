@@ -20,4 +20,10 @@ version.txt:
 clean:
 	rm -rf go.sum vendor bopmatic version.txt
 
+deps:
+	rm -rf go.mod go.sum vendor
+	go mod init github.com/bopmatic/cli
+	GOPROXY=direct go mod tidy
+	go mod vendor
+
 FORCE:
