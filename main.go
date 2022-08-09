@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -673,21 +674,19 @@ type ProjTemplate struct {
 	srcPath string
 }
 
-func selectProjectTemplateIdx(tmplNameIn string,
-	templateList []ProjTemplate) int {
+func selectProjectTemplateKey(tmplNameIn string,
+	templateMap map[string]ProjTemplate) string {
 
 	if tmplNameIn == "" {
-		return -1
+		return ""
 	}
 
-	for idx, _ := range templateList {
-		if templateList[idx].name == tmplNameIn {
-			return idx
-		}
+	if _, ok := templateMap[tmplNameIn]; ok {
+		return tmplNameIn
 	}
 
 	fmt.Fprintf(os.Stderr, "%v is not a valid project template\n", tmplNameIn)
-	return -1
+	return ""
 }
 
 func newMain(args []string) {
@@ -702,41 +701,33 @@ func newMain(args []string) {
 	}
 
 	// 1 fetch templates from Bopmatic Build Image
-	var templateList []ProjTemplate
-	templateListBuf := new(bytes.Buffer)
+	supportedLanguages := []string{"golang", "java", "python"}
+
+	templateMap := make(map[string]ProjTemplate)
 	ctx := context.Background()
-	err = util.RunContainerCommand(ctx,
-		[]string{"ls", "/bopmatic/examples/golang"}, templateListBuf, os.Stderr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to retrieve list of golang templates: %v\n",
-			err)
-		os.Exit(1)
-	}
-	for _, tmpl := range strings.Split(templateListBuf.String(), "\n") {
-		if tmpl != "" {
-			templateList = append(templateList,
-				ProjTemplate{name: "golang/" + tmpl,
-					srcPath: "/bopmatic/examples/golang/" + tmpl})
+
+	for _, lang := range supportedLanguages {
+		templateListBuf := new(bytes.Buffer)
+		err = util.RunContainerCommand(ctx,
+			[]string{"ls", fmt.Sprintf("/bopmatic/examples/%v", lang)},
+			templateListBuf, os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to retrieve list of %v templates: %v\n",
+				lang, err)
+			os.Exit(1)
+		}
+
+		for _, tmpl := range strings.Split(templateListBuf.String(), "\n") {
+			if tmpl != "" {
+				nameKey := lang + "/" + tmpl
+				templateMap[nameKey] = ProjTemplate{name: nameKey,
+					srcPath: "/bopmatic/examples/" + lang + "/" + tmpl}
+			}
 		}
 	}
 
-	templateListBuf2 := new(bytes.Buffer)
-	err = util.RunContainerCommand(ctx,
-		[]string{"ls", "/bopmatic/examples/java"}, templateListBuf2, os.Stderr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to retrieve list of java templates: %v\n",
-			err)
-		os.Exit(1)
-	}
-	for _, tmpl := range strings.Split(templateListBuf2.String(), "\n") {
-		if tmpl != "" {
-			templateList = append(templateList,
-				ProjTemplate{name: "java/" + tmpl,
-					srcPath: "/bopmatic/examples/java/" + tmpl})
-		}
-	}
-	templateList = append(templateList,
-		ProjTemplate{name: "staticsite", srcPath: "/bopmatic/examples/staticsite"})
+	templateMap["staticsite"] =
+		ProjTemplate{name: "staticsite", srcPath: "/bopmatic/examples/staticsite"}
 
 	// 2 get user inputs
 	user, err := user.Current()
@@ -746,13 +737,19 @@ func newMain(args []string) {
 	}
 
 	fmt.Printf("Available project templates:\n")
-	for _, tmpl := range templateList {
-		fmt.Printf("\t%v\n", tmpl.name)
+	var templateKeysSorted []string
+	for key, _ := range templateMap {
+		templateKeysSorted = append(templateKeysSorted, key)
+	}
+
+	sort.Strings(templateKeysSorted)
+	for _, key := range templateKeysSorted {
+		fmt.Printf("\t%v\n", key)
 	}
 
 	var templateName string
-	var selectedTmplIdx int
-	for selectedTmplIdx = -1; selectedTmplIdx == -1; selectedTmplIdx = selectProjectTemplateIdx(templateName, templateList) {
+	var selectedTmplKey string
+	for selectedTmplKey = ""; selectedTmplKey == ""; selectedTmplKey = selectProjectTemplateKey(templateName, templateMap) {
 
 		const defaultTemplateName = "golang/helloworld"
 		templateName = defaultTemplateName
@@ -778,7 +775,7 @@ func newMain(args []string) {
 
 	// 3 copy project from template
 	err = util.RunContainerCommand(ctx, []string{"cp", "-r",
-		templateList[selectedTmplIdx].srcPath, "./" + projectName}, os.Stdout,
+		templateMap[selectedTmplKey].srcPath, "./" + projectName}, os.Stdout,
 		os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create project %v: %v", projectName,
