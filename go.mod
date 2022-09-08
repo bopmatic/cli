@@ -3,7 +3,7 @@ module github.com/bopmatic/cli
 go 1.18
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20220805173946-8866fe4b228b
+	github.com/bopmatic/sdk/golang v0.0.0-20220827204045-a48c37f07c52
 	github.com/docker/docker v20.10.17+incompatible
 )
 
@@ -31,7 +31,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
-	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
+	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect

@@ -449,10 +449,6 @@ func pkgDescribeMain(args []string) {
 	case pb.PackageState_PRODUCTION:
 		fmt.Printf("\nBopmatic ServiceRunner has deployed your project. Try it out:\n\n")
 		fmt.Printf("\tWebsite: %v\n", descReply.SiteEndpoint)
-		fmt.Printf("\tAPI Endpoints(%v):\n", len(descReply.RpcEndpoints))
-		for _, rpc := range descReply.RpcEndpoints {
-			fmt.Printf("\t\t%v\n", rpc)
-		}
 		printExampleCurl(descReply)
 	case pb.PackageState_DEACTIVATING:
 		fmt.Printf("\nBopmatic ServiceRunner is currently removing your project package from production.\n")
@@ -472,13 +468,22 @@ func printExampleCurl(descReply *pb.DescribePackageReply) {
 		return
 	}
 
+	fmt.Printf("\tAPI Endpoints(%v):\n", len(descReply.RpcEndpoints))
+	for _, rpc := range descReply.RpcEndpoints {
+		fmt.Printf("\t\t%v\n", rpc)
+	}
 	firstApiUrl := descReply.RpcEndpoints[0]
+
 	fmt.Printf("\nYou can invoke your API directly from your shell via:\n")
-	fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	<req> %v\n",
-		firstApiUrl)
-	fmt.Printf("e.g.:\n")
-	fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	'{\"name\": \"somename\"}' %v\n",
-		firstApiUrl)
+
+	if !strings.Contains(firstApiUrl, "SayHello") {
+		fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	<req> %v\n",
+			firstApiUrl)
+	} else {
+		// @todo temporary hack to provide cut/pasteable curl calls for helloworld
+		fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	'{\"name\": \"somename\"}' %v\n",
+			firstApiUrl)
+	}
 }
 
 func describeMain(args []string) {
