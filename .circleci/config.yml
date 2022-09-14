@@ -1,28 +1,19 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/2.0/configuration-reference
+# https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-orbs:
-  github-release: h-matsuo/github-release@0.1.3
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+# https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
   build:
     working_directory: ~/repo
-    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+    # https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
       - image: bopmatic/build:latest
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+    # https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
       - restore_cache:
           keys:
             - go-mod-v4-{{ checksum "go.sum" }}
-      - run:
-          name: Install Compiler
-          command: yum install -y gcc
       - run:
           name: Install Dependencies
           command: make vendor
@@ -33,28 +24,39 @@ jobs:
       - run:
           name: Build
           command: |
+            if [ "$CIRCLE_TAG" != "" ]
+            then
+                make version.txt
+            fi          
             make build
-            mkdir /tmp/artifacts
-            cp bopmatic /tmp/artifacts
       - run:
           name: Run tests
-          command: |
-            mkdir -p /tmp/test-reports
-            make test | tee /tmp/test-reports/unit-tests.xml 2>&1
+          command: make unit-tests.xml
       - store_test_results:
-          path: /tmp/test-reports
+          path: unit-tests.xml
       - store_artifacts:
-          path: /tmp/artifacts
-      - github-release/create:
-          tag: v0.12.0-circleci
-          title: Bopmatic Tech Preview (v0.12.0-circleci)
-          description: This release is version v0.12.0-circleci.
-          file-path: /tmp/artifacts/bopmatic
+          path: bopmatic
+      - run:
+          name: Github release
+          command: |
+            PATH=$PATH:$HOME/go/bin
+            if [ "$CIRCLE_TAG" != "" ]
+            then
+                ghr -prerelease -name "Bopmatic Tech Preview ($CIRCLE_TAG)" $CIRCLE_TAG bopmatic
+            else
+                echo "Not releasing untagged commit"
+            fi
 
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+# https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
-  sample: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  version: 2
+  build-and-release:
     jobs:
-      - build
+      - build:
+          context:
+            - global
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only: main
