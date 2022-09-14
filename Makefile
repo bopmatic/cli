@@ -9,21 +9,23 @@ build: vendor version.txt help.txt FORCE
 test: build FORCE
 	go test
 
-go.sum vendor: go.mod
+unit-tests.xml:
+	gotestsum --junitfile unit-tests.xml
+
+vendor: go.mod
+	go mod download
 	go mod vendor
-	go mod tidy
 
 version.txt:
 	git describe --tags > version.txt
 
 .PHONY: clean
 clean:
-	rm -rf go.sum vendor bopmatic version.txt
+	rm -rf bopmatic unit-tests.xml
 
 deps:
 	rm -rf go.mod go.sum vendor
 	go mod init github.com/bopmatic/cli
 	GOPROXY=direct go mod tidy
-	go mod vendor
 
 FORCE:
