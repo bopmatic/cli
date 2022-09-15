@@ -49,7 +49,7 @@ jobs:
                 git remote set-url origin https://mikeb26:$GITHUB_TOKEN@github.com/bopmatic/homebrew-macos
                 sed -i "s@  url.*@  url \"https://github.com/bopmatic/cli/archive/refs/tags/$CIRCLE_TAG.tar.gz\"@" Formula/cli.rb
                 curl -L  https://github.com/bopmatic/cli/archive/refs/tags/$CIRCLE_TAG.tar.gz --output $CIRCLE_TAG.tar.gz
-                pkgSum=$(sha256sum $CIRCLE_TAG.tar.gz)
+                pkgSum=$(sha256sum $CIRCLE_TAG.tar.gz | cut -f1 -d' ')
                 sed -i "s@  sha256.*@  sha256 \"$pkgSum\"@" Formula/cli.rb
                 echo $GITHUB_SIGNKEY_PUB | base64 -d > /tmp/gpg.signkey.pub
                 echo $GITHUB_SIGNKEY_PRIV | base64 -d > /tmp/gpg.signkey.priv
