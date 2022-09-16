@@ -9,7 +9,7 @@ build: vendor version.txt help.txt FORCE
 test: build FORCE
 	go test
 
-unit-tests.xml:
+unit-tests.xml: FORCE
 	gotestsum --junitfile unit-tests.xml
 
 vendor: go.mod
@@ -23,6 +23,7 @@ version.txt:
 clean:
 	rm -rf bopmatic unit-tests.xml
 
+.PHONY: deps
 deps:
 	rm -rf go.mod go.sum vendor
 	go mod init github.com/bopmatic/cli
