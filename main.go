@@ -301,6 +301,10 @@ func pkgDestroyMain(args []string) {
 		fmt.Printf("ok.\nBopmatic ServiceRunner is already destroying pkgid:%v. You can check progress with:\n\t'bopmatic package describe --pkgid %v'\n",
 			opts.common.packageId, opts.common.packageId)
 		os.Exit(1)
+	case pb.PackageState_DELETED:
+		fmt.Printf("ok.\nBopmatic ServiceRunner has already destroyed pkgid:%v\n",
+			opts.common.packageId)
+		os.Exit(1)
 	case pb.PackageState_SUPPORT_NEEDED:
 		fallthrough
 	case pb.PackageState_UNKNOWN_PKG_STATE:
@@ -453,7 +457,9 @@ func pkgDescribeMain(args []string) {
 	case pb.PackageState_DEACTIVATING:
 		fmt.Printf("\nBopmatic ServiceRunner is currently removing your project package from production.\n")
 	case pb.PackageState_DELETING:
-		fmt.Printf("\nBopmatic ServiceRunner is currently deleting your project\n")
+		fmt.Printf("\nBopmatic ServiceRunner is currently deleting your project package\n")
+	case pb.PackageState_DELETED:
+		fmt.Printf("\nBopmatic ServiceRunner has deleted your project package\n")
 	case pb.PackageState_SUPPORT_NEEDED:
 		fallthrough
 	case pb.PackageState_UNKNOWN_PKG_STATE:
