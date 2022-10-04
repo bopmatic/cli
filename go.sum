@@ -11,8 +11,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdko
 github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl3/e6D5CLfI0j/7hiIEtvGVFPCZ7Ei2oq8iQ=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
-github.com/bopmatic/sdk/golang v0.0.0-20220930171150-895e37069467 h1:cqsPT2JJMqvHHmsceY1Q9R2AWDCt3rY9t4wYlRk1H9g=
-github.com/bopmatic/sdk/golang v0.0.0-20220930171150-895e37069467/go.mod h1:8KEWQXm2GyxxcS/pLQdSJaPsqHaV22tCfIF1kl3g4+A=
+github.com/bopmatic/sdk/golang v0.0.0-20221004170140-a2e34a7ffdd9 h1:L0Siz7wF/mj2YBDc8YWWEMDWQDKBaPzGP8P5EUsvsGw=
+github.com/bopmatic/sdk/golang v0.0.0-20221004170140-a2e34a7ffdd9/go.mod h1:8KEWQXm2GyxxcS/pLQdSJaPsqHaV22tCfIF1kl3g4+A=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
