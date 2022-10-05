@@ -54,8 +54,10 @@ var subCommandTab = map[string]func(args []string){
 }
 
 const (
-	ExamplesDir     = "/bopmatic/examples"
-	DefaultTemplate = "golang/helloworld"
+	ExamplesDir          = "/bopmatic/examples"
+	DefaultTemplate      = "golang/helloworld"
+	ClientTemplateSubdir = "client"
+	SiteAssetsSubdir     = "site_assets"
 )
 
 func pkgMain(args []string) {
@@ -751,7 +753,7 @@ func fetchTemplateSet(subdirs []string) map[string]ProjTemplate {
 	return tmplSet
 }
 
-func fetchTemplates() (serviceTemplates map[string]ProjTemplate) {
+func fetchTemplates() (serviceTemplates, clientTemplates map[string]ProjTemplate) {
 
 	supportedLanguages := []string{"golang", "java", "python"}
 
@@ -762,7 +764,9 @@ func fetchTemplates() (serviceTemplates map[string]ProjTemplate) {
 		srcPath: ExamplesDir + "/staticsite",
 	}
 
-	return serviceTemplates
+	clientTemplates = fetchTemplateSet([]string{ClientTemplateSubdir})
+
+	return serviceTemplates, clientTemplates
 }
 
 func getUserInputsForNewPkg(serviceTemplates map[string]ProjTemplate) (
@@ -841,7 +845,7 @@ func replaceTemplateKeywordInFile(filename, existingText, replaceText string,
 	}
 }
 
-func createProjectFromTemplate(serviceTemplates map[string]ProjTemplate,
+func createProjectFromTemplate(serviceTemplates, clientTemplates map[string]ProjTemplate,
 	selectedTmplKey, projectName string) (projectDir, projectFile string) {
 
 	ctx := context.Background()
@@ -856,11 +860,35 @@ func createProjectFromTemplate(serviceTemplates map[string]ProjTemplate,
 		os.Exit(1)
 	}
 
+	// if there's a matching client template, replace site_assets with it
+	tmplBase := path.Base(selectedTmplKey)
+	clientTmplKey := ClientTemplateSubdir + "/" + tmplBase
+	clientTmpl, ok := clientTemplates[clientTmplKey]
+	if ok {
+		siteAssetsDir := "./" + projectName + "/" + SiteAssetsSubdir
+		err := util.RunContainerCommand(ctx, []string{"rm", "-rf",
+			siteAssetsDir}, os.Stdout, os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to remove %v: %v", siteAssetsDir, err)
+			os.Exit(1)
+		}
+
+		clientDir := "./" + projectName + "/" + ClientTemplateSubdir
+		err = util.RunContainerCommand(ctx, []string{"cp", "-r",
+			clientTmpl.srcPath, clientDir}, os.Stdout, os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to copy client assets into %v: %v",
+				siteAssetsDir, err)
+			os.Exit(1)
+		}
+	}
+
 	// set the created project's name
 	// @todo find a cleaner way to replace the project name
 	projectDir = filepath.Join(".", projectName)
 	projectFile = filepath.Join(projectDir, "Bopmatic.yaml")
 	projectMakefile := filepath.Join(projectDir, "Makefile")
+	clientMakefile := filepath.Join(projectDir, ClientTemplateSubdir, "Makefile")
 	templateToken := filepath.Join(projectDir, "template_replace_keyword")
 
 	templateKeyword, err := ioutil.ReadFile(templateToken)
@@ -874,6 +902,10 @@ func createProjectFromTemplate(serviceTemplates map[string]ProjTemplate,
 		projectName, false)
 	replaceTemplateKeywordInFile(projectMakefile, string(templateKeyword),
 		projectName, true)
+	if ok {
+		replaceTemplateKeywordInFile(clientMakefile, string(templateKeyword),
+			projectName, true)
+	}
 
 	_ = os.Remove(templateToken)
 
@@ -891,12 +923,12 @@ func newMain(args []string) {
 		os.Exit(1)
 	}
 
-	serviceTemplates := fetchTemplates()
+	serviceTemplates, clientTemplates := fetchTemplates()
 
 	selectedTmplKey, projectName := getUserInputsForNewPkg(serviceTemplates)
 
 	projectDir, projectFile := createProjectFromTemplate(serviceTemplates,
-		selectedTmplKey, projectName)
+		clientTemplates, selectedTmplKey, projectName)
 
 	// validate everything worked
 	proj, err := bopsdk.NewProject(projectFile)
