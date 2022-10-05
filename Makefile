@@ -28,5 +28,6 @@ deps:
 	rm -rf go.mod go.sum vendor
 	go mod init github.com/bopmatic/cli
 	GOPROXY=direct go mod tidy
+	go mod vendor
 
 FORCE:

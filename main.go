@@ -53,6 +53,11 @@ var subCommandTab = map[string]func(args []string){
 	"version":  versionMain,
 }
 
+const (
+	ExamplesDir     = "/bopmatic/examples"
+	DefaultTemplate = "golang/helloworld"
+)
+
 func pkgMain(args []string) {
 	exitStatus := 0
 
@@ -664,11 +669,12 @@ func pullBopmaticImage() {
 		var progressPct uint64
 		progressPct = 100
 		if dockerStatus.Detail.Total != 0 {
-			progressPct = (dockerStatus.Detail.Current * 100) / dockerStatus.Detail.Total
+			progressPct =
+				(dockerStatus.Detail.Current * 100) / dockerStatus.Detail.Total
 		}
 
-		fmt.Printf("\t%v id:%v progress:%v%%\n", dockerStatus.Status, dockerStatus.Id,
-			progressPct)
+		fmt.Printf("\t%v id:%v progress:%v%%\n", dockerStatus.Status,
+			dockerStatus.Id, progressPct)
 	}
 
 	err = progressScanner.Err()
@@ -700,47 +706,68 @@ func selectProjectTemplateKey(tmplNameIn string,
 	return ""
 }
 
-func newMain(args []string) {
-	haveBuildImg, err := util.HasBopmaticBuildImage()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	if !haveBuildImg {
-		fmt.Fprintf(os.Stderr, "Could not find Bopmatic Build Image; please run:\n\n\tbopmatic config\n")
-		os.Exit(1)
-	}
+func readContainerDir(dir string) (dirEntries []string, err error) {
 
-	// 1 fetch templates from Bopmatic Build Image
-	supportedLanguages := []string{"golang", "java", "python"}
-
-	templateMap := make(map[string]ProjTemplate)
 	ctx := context.Background()
+	tmpBuf := new(bytes.Buffer)
 
-	for _, lang := range supportedLanguages {
-		templateListBuf := new(bytes.Buffer)
-		err = util.RunContainerCommand(ctx,
-			[]string{"ls", fmt.Sprintf("/bopmatic/examples/%v", lang)},
-			templateListBuf, os.Stderr)
+	err = util.RunContainerCommand(ctx, []string{"ls", dir}, tmpBuf, os.Stderr)
+	if err != nil {
+		return nil, err
+	}
+
+	dirEntries = make([]string, 0)
+	for _, entry := range strings.Split(tmpBuf.String(), "\n") {
+		if entry != "" {
+			dirEntries = append(dirEntries, entry)
+		}
+	}
+
+	return dirEntries, nil
+}
+
+func fetchTemplateSet(subdirs []string) map[string]ProjTemplate {
+
+	tmplSet := make(map[string]ProjTemplate)
+
+	for _, subdir := range subdirs {
+		dir := fmt.Sprintf("%v/%v", ExamplesDir, subdir)
+		dirEntries, err := readContainerDir(dir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to retrieve list of %v templates: %v\n",
-				lang, err)
+				subdir, err)
 			os.Exit(1)
 		}
 
-		for _, tmpl := range strings.Split(templateListBuf.String(), "\n") {
-			if tmpl != "" {
-				nameKey := lang + "/" + tmpl
-				templateMap[nameKey] = ProjTemplate{name: nameKey,
-					srcPath: "/bopmatic/examples/" + lang + "/" + tmpl}
+		for _, tmpl := range dirEntries {
+			nameKey := subdir + "/" + tmpl
+			tmplSet[nameKey] = ProjTemplate{
+				name:    nameKey,
+				srcPath: ExamplesDir + "/" + subdir + "/" + tmpl,
 			}
 		}
 	}
 
-	templateMap["staticsite"] =
-		ProjTemplate{name: "staticsite", srcPath: "/bopmatic/examples/staticsite"}
+	return tmplSet
+}
 
-	// 2 get user inputs
+func fetchTemplates() (serviceTemplates map[string]ProjTemplate) {
+
+	supportedLanguages := []string{"golang", "java", "python"}
+
+	serviceTemplates = fetchTemplateSet(supportedLanguages)
+
+	serviceTemplates["staticsite"] = ProjTemplate{
+		name:    "staticsite",
+		srcPath: ExamplesDir + "/staticsite",
+	}
+
+	return serviceTemplates
+}
+
+func getUserInputsForNewPkg(serviceTemplates map[string]ProjTemplate) (
+	selectedTmplKey, projectName string) {
+
 	user, err := user.Current()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to determine your username: %v", err)
@@ -749,7 +776,7 @@ func newMain(args []string) {
 
 	fmt.Printf("Available project templates:\n")
 	var templateKeysSorted []string
-	for key, _ := range templateMap {
+	for key, _ := range serviceTemplates {
 		templateKeysSorted = append(templateKeysSorted, key)
 	}
 
@@ -759,10 +786,9 @@ func newMain(args []string) {
 	}
 
 	var templateName string
-	var selectedTmplKey string
-	for selectedTmplKey = ""; selectedTmplKey == ""; selectedTmplKey = selectProjectTemplateKey(templateName, templateMap) {
+	for selectedTmplKey = ""; selectedTmplKey == ""; selectedTmplKey = selectProjectTemplateKey(templateName, serviceTemplates) {
 
-		const defaultTemplateName = "golang/helloworld"
+		const defaultTemplateName = DefaultTemplate
 		templateName = defaultTemplateName
 
 		fmt.Printf("Enter Bopmatic Project Template [%v]: ", defaultTemplateName)
@@ -770,7 +796,6 @@ func newMain(args []string) {
 		templateName = strings.TrimSpace(templateName)
 	}
 
-	var projectName string
 	for {
 		projectName = user.Username + path.Base(templateName)
 		fmt.Printf("Enter Bopmatic Project Name [%v]: ", projectName)
@@ -784,77 +809,96 @@ func newMain(args []string) {
 		}
 	}
 
-	// 3 copy project from template
-	err = util.RunContainerCommand(ctx, []string{"cp", "-r",
-		templateMap[selectedTmplKey].srcPath, "./" + projectName}, os.Stdout,
-		os.Stderr)
+	return selectedTmplKey, projectName
+}
+
+func replaceTemplateKeywordInFile(filename, existingText, replaceText string,
+	ignoreIfNotExist bool) {
+
+	fileContentBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		if ignoreIfNotExist && os.IsNotExist(err) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Failed to set replace %v with %v in %v: %v",
+			existingText, replaceText, filename, err)
+		os.Exit(1)
+	}
+	fileContent := string(fileContentBytes)
+
+	fileContent = strings.ReplaceAll(fileContent,
+		strings.ToLower(existingText), strings.ToLower(replaceText))
+
+	hasUpperCase := (strings.ToLower(existingText) != existingText)
+	if hasUpperCase {
+		fileContent = strings.ReplaceAll(fileContent, existingText, replaceText)
+	}
+
+	err = ioutil.WriteFile(filename, []byte(fileContent), 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to update %v: %v", filename, err)
+		os.Exit(1)
+	}
+}
+
+func createProjectFromTemplate(serviceTemplates map[string]ProjTemplate,
+	selectedTmplKey, projectName string) (projectDir, projectFile string) {
+
+	ctx := context.Background()
+
+	// copy project from template
+	err := util.RunContainerCommand(ctx, []string{"cp", "-r",
+		serviceTemplates[selectedTmplKey].srcPath, "./" + projectName},
+		os.Stdout, os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create project %v: %v", projectName,
 			err)
 		os.Exit(1)
 	}
 
-	// 4 set the created project's name
+	// set the created project's name
 	// @todo find a cleaner way to replace the project name
-	projectDir := filepath.Join(".", projectName)
-	projectFile := filepath.Join(projectDir, "Bopmatic.yaml")
+	projectDir = filepath.Join(".", projectName)
+	projectFile = filepath.Join(projectDir, "Bopmatic.yaml")
 	projectMakefile := filepath.Join(projectDir, "Makefile")
 	templateToken := filepath.Join(projectDir, "template_replace_keyword")
+
 	templateKeyword, err := ioutil.ReadFile(templateToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
 			err)
 		os.Exit(1)
 	}
-	projectFileContentBytes, err := ioutil.ReadFile(projectFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
-			err)
-		os.Exit(1)
-	}
-	projectFileContent := string(projectFileContentBytes)
 
-	projectFileContent = strings.ReplaceAll(projectFileContent,
-		strings.ToLower(string(templateKeyword)), strings.ToLower(projectName))
+	replaceTemplateKeywordInFile(projectFile, string(templateKeyword),
+		projectName, false)
+	replaceTemplateKeywordInFile(projectMakefile, string(templateKeyword),
+		projectName, true)
 
-	hasUpperCase := (strings.ToLower(string(templateKeyword)) !=
-		string(templateKeyword))
-	if hasUpperCase {
-		projectFileContent = strings.ReplaceAll(projectFileContent,
-			string(templateKeyword), projectName)
-	}
-
-	err = ioutil.WriteFile(projectFile, []byte(projectFileContent), 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
-			err)
-		os.Exit(1)
-	}
-
-	projectMakefileContentBytes, err := ioutil.ReadFile(projectMakefile)
-	if err == nil {
-		projectMakefileContent := string(projectMakefileContentBytes)
-		projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
-			strings.ToLower(string(templateKeyword)),
-			strings.ToLower(projectName))
-		if hasUpperCase {
-			projectMakefileContent = strings.ReplaceAll(projectMakefileContent,
-				string(templateKeyword), projectName)
-		}
-		err := ioutil.WriteFile(projectMakefile, []byte(projectMakefileContent), 0644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
-				err)
-			os.Exit(1)
-		}
-	} else if !os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
-			err)
-		os.Exit(1)
-	}
 	_ = os.Remove(templateToken)
 
-	// 5 validate everything worked
+	return projectDir, projectFile
+}
+
+func newMain(args []string) {
+	haveBuildImg, err := util.HasBopmaticBuildImage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if !haveBuildImg {
+		fmt.Fprintf(os.Stderr, "Could not find Bopmatic Build Image; please run:\n\n\tbopmatic config\n")
+		os.Exit(1)
+	}
+
+	serviceTemplates := fetchTemplates()
+
+	selectedTmplKey, projectName := getUserInputsForNewPkg(serviceTemplates)
+
+	projectDir, projectFile := createProjectFromTemplate(serviceTemplates,
+		selectedTmplKey, projectName)
+
+	// validate everything worked
 	proj, err := bopsdk.NewProject(projectFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Created project %v but it fails to parse: %v",
