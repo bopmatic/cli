@@ -1,10 +1,10 @@
 module github.com/bopmatic/cli
 
-go 1.18
+go 1.19
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20221010172753-0952a6af4509
-	github.com/docker/docker v20.10.18+incompatible
+	github.com/bopmatic/sdk/golang v0.0.0-20221018210812-932f7b258a3a
+	github.com/docker/docker v20.10.20+incompatible
 )
 
 require (
