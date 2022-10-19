@@ -698,11 +698,19 @@ func upgradeMain(args []string) {
 }
 
 func upgradeCLIViaBrew() {
-	// @todo invoke brew update && brew install bopmatic/cli on behalf of user
-	fmt.Fprintf(os.Stderr, "Please run:\n")
-	fmt.Fprintf(os.Stderr, "\t'brew update'\n")
-	fmt.Fprintf(os.Stderr, "\t'brew install bopmatic/cli'\n")
-	os.Exit(1)
+	ctx := context.Background()
+	err := util.RunHostCommand(ctx, []string{"brew", "update"}, os.Stdout,
+		os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to update brew formulae: %v\n", err)
+		os.Exit(1)
+	}
+	err = util.RunHostCommand(ctx, []string{"brew", "install",
+		"bopmatic/macos/cli"}, os.Stdout, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to upgrade bopmatic: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func upgradeCLIViaGithub(latestVer string) {
