@@ -11,14 +11,15 @@ make
 
 The Bopmatic CLI depends on docker being installed and runnable as non-root. 
 
-### Ubuntu 20.04 LTS
+### Linux
 
 Note these instructions and the CLI should work on any Linux
 distribution, but have only been explicitly tested on Ubuntu 20.04
 LTS.
 
 ```bash
-$ wget https://github.com/bopmatic/cli/releases/download/v0.9.6/bopmatic
+$ BOPURL=$(curl -s https://api.github.com/repos/bopmatic/cli/releases/latest | grep browser_download_url | cut -f2,3 -d: | tr -d \")
+$ wget $BOPURL
 $ chmod 755 bopmatic
 $ sudo mv bopmatic /usr/local/bin
 ```
@@ -37,15 +38,12 @@ $ brew install bopmatic/macos/cli
 wsl –set-default-version 2
 ```
 3. Install Ubuntu 20.04 on WSL 2 (https://www.microsoft.com/store/apps/9n6svws3rx71)
-3. Open an Ubuntu terminal window and follow Ubuntu 20.04 LTS install instructions above
+3. Open an Ubuntu terminal window and follow Linux install instructions above
 
 
 ## Usage
 
 ```bash
-$ bopmatic --help
-## Usage
-
 Bopmatic - The easy button for serverless
 
 To begin working with Bopmatic, run the `bopmatic new` command:
@@ -74,6 +72,7 @@ Available Commands:
   config         Set Bopmatic configuration
   new            Create a new Bopmatic project
   version        Print Bomatic CLI's version number
+  upgrade        Upgrade Bopmatic CLI to the latest version
 
 Common Flags:
   --projfile                         Bopmatic project file; defaults to Bopmatic.yaml
