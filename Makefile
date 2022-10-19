@@ -21,9 +21,10 @@ version.txt:
 	truncate -s -1 version.txt
 
 .PHONY: brewversion
-brewversion: version.txt
-# update main.go:BrewVersionSuffix if changing this value
-	printf 'b' >> version.txt
+brewversion:
+# update main.go:BrewVersionSuffix if changing this 'b' value
+# update .circleci/config.yml and homebrew-macos/Formula/cli.rb if changing BOPCLIVER
+	printf '$(BOPCLIVER)b' > version.txt
 
 .PHONY: clean
 clean:

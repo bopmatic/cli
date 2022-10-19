@@ -51,6 +51,7 @@ jobs:
                 curl -L  https://github.com/bopmatic/cli/archive/refs/tags/$CIRCLE_TAG.tar.gz --output $CIRCLE_TAG.tar.gz
                 pkgSum=$(sha256sum $CIRCLE_TAG.tar.gz | cut -f1 -d' ')
                 sed -i "s@  sha256.*@  sha256 \"$pkgSum\"@" Formula/cli.rb
+                sed -i "s@BOPCLIVER=.*, @BOPCLIVER=$CIRCLE_TAG\", @" Formula/cli.rb
                 echo $GITHUB_SIGNKEY_PUB | base64 -d > /tmp/gpg.signkey.pub
                 echo $GITHUB_SIGNKEY_PRIV | base64 -d > /tmp/gpg.signkey.priv
                 gpg --import /tmp/gpg.signkey.pub
