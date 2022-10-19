@@ -26,6 +26,7 @@ Available Commands:
   config         Set Bopmatic configuration
   new            Create a new Bopmatic project
   version        Print Bomatic CLI's version number
+  upgrade        Upgrade Bopmatic CLI to the latest version
 
 Common Flags:
   --projfile                         Bopmatic project file; defaults to Bopmatic.yaml

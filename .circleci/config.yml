@@ -43,7 +43,7 @@ jobs:
             PATH=$PATH:$HOME/go/bin
             if [ "$CIRCLE_TAG" != "" ]
             then
-                ghr -prerelease -name "Bopmatic Tech Preview ($CIRCLE_TAG)" $CIRCLE_TAG bopmatic
+                ghr -name "Bopmatic Tech Preview ($CIRCLE_TAG)" $CIRCLE_TAG bopmatic
                 git clone https://mikeb26:$GITHUB_TOKEN@github.com/bopmatic/homebrew-macos
                 cd homebrew-macos
                 git remote set-url origin https://mikeb26:$GITHUB_TOKEN@github.com/bopmatic/homebrew-macos

@@ -51,6 +51,7 @@ var subCommandTab = map[string]func(args []string){
 	"config":   configMain,
 	"new":      newMain,
 	"version":  versionMain,
+	"upgrade":  upgradeMain,
 }
 
 const (
@@ -58,6 +59,8 @@ const (
 	DefaultTemplate      = "golang/helloworld"
 	ClientTemplateSubdir = "client"
 	SiteAssetsSubdir     = "site_assets"
+	// update Makefile brewversion target if changing this value
+	BrewVersionSuffix = "b"
 )
 
 func pkgMain(args []string) {
@@ -629,6 +632,154 @@ func configMain(args []string) {
 	}
 }
 
+func getLatestVersion() (string, error) {
+	const LatestReleaseUrl = "https://api.github.com/repos/bopmatic/cli/releases/latest"
+
+	client := http.Client{
+		Timeout: time.Second * 30,
+	}
+
+	resp, err := client.Get(LatestReleaseUrl)
+	if err != nil {
+		return "", err
+	}
+
+	releaseJsonDoc, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var releaseDoc map[string]any
+	json.Unmarshal(releaseJsonDoc, &releaseDoc)
+
+	latestRelease, ok := releaseDoc["tag_name"].(string)
+	if !ok {
+		return "", fmt.Errorf("Could not parse %v", LatestReleaseUrl)
+	}
+
+	if isBrewVersion() {
+		latestRelease += BrewVersionSuffix
+	}
+	return latestRelease, nil
+}
+
+func upgradeMain(args []string) {
+	if versionText == DevVersionText {
+		fmt.Fprintf(os.Stderr, "Skipping upgrade on development version\n")
+		os.Exit(1)
+	}
+	latestVer, err := getLatestVersion()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not determine latest version: %v\n", err)
+		os.Exit(1)
+	}
+	if latestVer == versionText {
+		fmt.Printf("%v is already the latest version\n", versionText)
+		os.Exit(0)
+	}
+
+	fmt.Printf("A new version of the Bopmatic CLI is available (%v). Upgrade? (Y/N) [Y]: ",
+		latestVer)
+	shouldUpgrade := "Y"
+	fmt.Scanf("%s", &shouldUpgrade)
+	shouldUpgrade = strings.ToUpper(strings.TrimSpace(shouldUpgrade))
+
+	if shouldUpgrade[0] != 'Y' {
+		os.Exit(0)
+	}
+
+	fmt.Printf("Upgrading bopmatic cli from %v to %v...\n", versionText,
+		latestVer)
+
+	if isBrewVersion() {
+		upgradeCLIViaBrew()
+	} else {
+		upgradeCLIViaGithub(latestVer)
+	}
+}
+
+func upgradeCLIViaBrew() {
+	// @todo invoke brew update && brew install bopmatic/cli on behalf of user
+	fmt.Fprintf(os.Stderr, "Please run:\n")
+	fmt.Fprintf(os.Stderr, "\t'brew update'\n")
+	fmt.Fprintf(os.Stderr, "\t'brew install bopmatic/cli'\n")
+	os.Exit(1)
+}
+
+func upgradeCLIViaGithub(latestVer string) {
+	const LatestDownloadFmt = "https://github.com/bopmatic/cli/releases/download/%v/bopmatic"
+
+	client := http.Client{
+		Timeout: time.Second * 30,
+	}
+
+	resp, err := client.Get(fmt.Sprintf(LatestDownloadFmt, latestVer))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to download version %v: %v\n",
+			versionText, err)
+		os.Exit(1)
+	}
+
+	tmpFile, err := os.CreateTemp("", "bopmatic-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create temp file: %v", err)
+	}
+	binaryContent, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to download version %v: %v\n",
+			versionText, err)
+		os.Exit(1)
+	}
+
+	_, err = tmpFile.Write(binaryContent)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to download version %v: %v\n",
+			versionText, err)
+		os.Exit(1)
+	}
+	err = tmpFile.Chmod(0755)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to download version %v: %v\n",
+			versionText, err)
+		os.Exit(1)
+	}
+	err = tmpFile.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to download version %v: %v\n",
+			versionText, err)
+		os.Exit(1)
+	}
+	myBinaryPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not determine path to bopmatic CLI: %v\n",
+			err)
+		os.Exit(1)
+	}
+	myBinaryPath, err = filepath.EvalSymlinks(myBinaryPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not determine path to bopmatic CLI: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	myBinaryPathBak := myBinaryPath + ".bak"
+	err = os.Rename(myBinaryPath, myBinaryPathBak)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not replace existing %v; do you need to be root?: %v\n",
+			myBinaryPath, err)
+		os.Exit(1)
+	}
+	err = os.Rename(tmpFile.Name(), myBinaryPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not replace existing %v; do you need to be root?: %v\n",
+			myBinaryPath, err)
+		_ = os.Rename(myBinaryPathBak, myBinaryPath)
+		os.Exit(1)
+	}
+	_ = os.Remove(myBinaryPathBak)
+
+	fmt.Printf("Upgrade %v to %v complete\n", myBinaryPath, latestVer)
+}
+
 func pullBopmaticImage() {
 	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv,
 
@@ -948,8 +1099,18 @@ func newMain(args []string) {
 //go:embed version.txt
 var versionText string
 
+const DevVersionText = "v0.devbuild"
+
 func versionMain(args []string) {
-	fmt.Printf("bopmatic-cli-%v", versionText)
+	fmt.Printf("bopmatic-cli-%v\n", versionText)
+}
+
+func isBrewVersion() bool {
+	if versionText[len(versionText)-1] == BrewVersionSuffix[0] {
+		return true
+	}
+
+	return false
 }
 
 func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
@@ -994,6 +1155,7 @@ func getHttpClientFromCreds() (*http.Client, error) {
 }
 
 func main() {
+	versionText = strings.Split(versionText, "\n")[0]
 	exitStatus := 0
 
 	subCommandName := "help"

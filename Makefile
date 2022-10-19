@@ -18,6 +18,12 @@ vendor: go.mod
 
 version.txt:
 	git describe --tags > version.txt
+	truncate -s -1 version.txt
+
+.PHONY: brewversion
+brewversion: version.txt
+# update main.go:BrewVersionSuffix if changing this value
+	printf 'b' >> version.txt
 
 .PHONY: clean
 clean:
