@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -608,28 +609,7 @@ func configMain(args []string) {
 		}
 	}
 
-	haveBuildImg, err := util.HasBopmaticBuildImage()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	if haveBuildImg {
-		fmt.Printf("Update Bopmatic Build Image? (Y/N) [Y]: ")
-	} else {
-		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 620MiB(compressed) in size.\n")
-		fmt.Printf("Download Bopmatic Build Image? (Y/N) [Y]: ")
-	}
-	shouldDownload := "Y"
-	fmt.Scanf("%s", &shouldDownload)
-	shouldDownload = strings.TrimSpace(shouldDownload)
-
-	if strings.ToUpper(shouldDownload)[0] == 'Y' {
-		pullBopmaticImage()
-
-		if !haveBuildImg {
-			fmt.Printf("To create a bopmatic project, next run:\n\t'bopmatic new'\n")
-		}
-	}
+	upgradeBuildContainer([]string{})
 }
 
 func getLatestVersion() (string, error) {
@@ -649,7 +629,10 @@ func getLatestVersion() (string, error) {
 		return "", err
 	}
 	var releaseDoc map[string]any
-	json.Unmarshal(releaseJsonDoc, &releaseDoc)
+	err = json.Unmarshal(releaseJsonDoc, &releaseDoc)
+	if err != nil {
+		return "", err
+	}
 
 	latestRelease, ok := releaseDoc["tag_name"].(string)
 	if !ok {
@@ -663,9 +646,14 @@ func getLatestVersion() (string, error) {
 }
 
 func upgradeMain(args []string) {
+	upgradeBuildContainer(args)
+	upgradeCLI(args)
+}
+
+func upgradeCLI(args []string) {
 	if versionText == DevVersionText {
-		fmt.Fprintf(os.Stderr, "Skipping upgrade on development version\n")
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Skipping CLI upgrade on development version\n")
+		return
 	}
 	latestVer, err := getLatestVersion()
 	if err != nil {
@@ -673,8 +661,9 @@ func upgradeMain(args []string) {
 		os.Exit(1)
 	}
 	if latestVer == versionText {
-		fmt.Printf("%v is already the latest version\n", versionText)
-		os.Exit(0)
+		fmt.Printf("Bopmatic CLI %v is already the latest version\n",
+			versionText)
+		return
 	}
 
 	fmt.Printf("A new version of the Bopmatic CLI is available (%v). Upgrade? (Y/N) [Y]: ",
@@ -684,7 +673,7 @@ func upgradeMain(args []string) {
 	shouldUpgrade = strings.ToUpper(strings.TrimSpace(shouldUpgrade))
 
 	if shouldUpgrade[0] != 'Y' {
-		os.Exit(0)
+		return
 	}
 
 	fmt.Printf("Upgrading bopmatic cli from %v to %v...\n", versionText,
@@ -694,6 +683,43 @@ func upgradeMain(args []string) {
 		upgradeCLIViaBrew()
 	} else {
 		upgradeCLIViaGithub(latestVer)
+	}
+}
+
+func upgradeBuildContainer(args []string) {
+	haveBuildImg, err := util.HasBopmaticBuildImage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if haveBuildImg {
+		needUpgrade, err :=
+			util.DoesLocalImageNeedUpdate(util.BopmaticImageRepo,
+				util.BopmaticImageTag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		if needUpgrade == false {
+			fmt.Printf("Bopmatic Build container is up to date\n")
+			return
+		}
+
+		fmt.Printf("Update Bopmatic Build Image? (Y/N) [Y]: ")
+	} else {
+		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 975MiB(compressed) in size.\n")
+		fmt.Printf("Download Bopmatic Build Image? (Y/N) [Y]: ")
+	}
+	shouldDownload := "Y"
+	fmt.Scanf("%s", &shouldDownload)
+	shouldDownload = strings.TrimSpace(shouldDownload)
+
+	if strings.ToUpper(shouldDownload)[0] == 'Y' {
+		pullBopmaticImage()
+
+		if !haveBuildImg {
+			fmt.Printf("To create a bopmatic project, next run:\n\t'bopmatic new'\n")
+		}
 	}
 }
 
@@ -1162,9 +1188,65 @@ func getHttpClientFromCreds() (*http.Client, error) {
 	}, nil
 }
 
+func checkAndPrintUpgradeCLIWarning() bool {
+	if versionText == DevVersionText {
+		return false
+	}
+	latestVer, err := getLatestVersion()
+	if err != nil {
+		return false
+	}
+	if latestVer == versionText {
+		return false
+	}
+
+	fmt.Fprintf(os.Stderr, "*WARN*: A new version of the Bopmatic CLI is available (%v). Please upgrade via 'bopmatic upgrade'.\n",
+		latestVer)
+
+	return true
+}
+
+func checkAndPrintUpgradeContainerWarning() bool {
+	haveBuildImg, err := util.HasBopmaticBuildImage()
+	if err != nil || !haveBuildImg {
+		return false
+	}
+
+	needUpgrade, err := util.DoesLocalImageNeedUpdate(util.BopmaticImageRepo,
+		util.BopmaticImageTag)
+	if err != nil || needUpgrade == false {
+		return false
+	}
+
+	fmt.Fprintf(os.Stderr, "*WARN*: A new version of the Bopmatic Build container is available. Please upgrade via 'bopmatic upgrade'.\n")
+
+	return true
+}
+
+func checkAndPrintArchWarning() bool {
+	if runtime.GOARCH != "amd64" {
+		if runtime.GOOS == "darwin" {
+			fmt.Fprintf(os.Stderr, "*WARN*: bopmatic's build container is known not to run well on M1 based Macs; please try on a 64-bit Intel/AMD based system if possible.\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "*WARN*: bopmatic's build container has not been tested on your CPU (%v); please try on a 64-bit Intel/AMD based system if possible.\n",
+				runtime.GOARCH)
+		}
+		return true
+	}
+
+	return false
+}
+
 func main() {
 	versionText = strings.Split(versionText, "\n")[0]
 	exitStatus := 0
+
+	printedUpgradeCLIWarning := checkAndPrintUpgradeCLIWarning()
+	printedUpgradeContainerWarning := checkAndPrintUpgradeContainerWarning()
+	printedArchWarning := checkAndPrintArchWarning()
+	if printedUpgradeCLIWarning || printedUpgradeContainerWarning || printedArchWarning {
+		fmt.Fprintf(os.Stderr, "\n")
+	}
 
 	subCommandName := "help"
 	if len(os.Args) > 1 {
