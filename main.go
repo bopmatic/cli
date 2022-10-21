@@ -921,9 +921,10 @@ func fetchTemplateSet(subdirs []string) map[string]ProjTemplate {
 		dir := fmt.Sprintf("%v/%v", ExamplesDir, subdir)
 		dirEntries, err := readContainerDir(dir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to retrieve list of %v templates: %v\n",
+			// can occur if user has an older build container'
+			fmt.Fprintf(os.Stderr, "Failed to retrieve list of %v templates: %v. Skipping.\n",
 				subdir, err)
-			os.Exit(1)
+			continue
 		}
 
 		for _, tmpl := range dirEntries {
