@@ -3,8 +3,8 @@ module github.com/bopmatic/cli
 go 1.19
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20230130174812-1c5c116a2f29
-	github.com/docker/docker v20.10.23+incompatible
+	github.com/bopmatic/sdk/golang v0.0.0-20230403160327-3e280d6ed82f
+	github.com/docker/docker v23.0.2+incompatible
 )
 
 require (
@@ -38,7 +38,6 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/yoheimuta/go-protoparser/v4 v4.7.0 // indirect
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.opentelemetry.io/otel v1.11.1 // indirect
