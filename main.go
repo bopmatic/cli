@@ -22,7 +22,7 @@ import (
 
 	_ "embed"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
 
 	bopsdk "github.com/bopmatic/sdk/golang"
@@ -825,7 +825,7 @@ func pullBopmaticImage() {
 	}
 
 	reader, err := cli.ImagePull(context.Background(),
-		util.BopmaticBuildImageName, types.ImagePullOptions{})
+		util.BopmaticBuildImageName, image.PullOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to pull image: %v", err)
 		os.Exit(1)
