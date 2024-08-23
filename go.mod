@@ -3,7 +3,8 @@ module github.com/bopmatic/cli
 go 1.22.3
 
 require (
-	github.com/bopmatic/sdk/golang v0.0.0-20240814172300-e5850fbac21c
+	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/bopmatic/sdk/golang v0.0.0-20240823010214-f973908ac969
 	github.com/docker/docker v27.1.2+incompatible
 )
 
