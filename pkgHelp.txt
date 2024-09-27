@@ -7,12 +7,11 @@ Available Package Commands:
                  production.
   list           Query Bopmatic ServiceRunner for a list of packages which have been previously
                  deployed.
-  destroy        Instruct Bopmatic ServiceRunner to remove a package from production and delete it
   describe       Query Bopmatic ServiceRunner for details about a package
   help           This help screen
 
 Common Flags:
-  --projname                         Bopmatic project name; when run from a Bopamtic project
+  --projid                           Bopmatic project id; when run from a Bopamtic project
                                      directory this will default to your current Bopmatic
-				     project's name
+				     project's id
   --pkgid                            Bopmatic package identifier

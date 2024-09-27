@@ -40,8 +40,9 @@ import (
 
 type commonOpts struct {
 	projectFilename string
-	projectName     string
+	projectId       string
 	packageId       string
+	deployId        string
 	serviceName     string
 	startTime       string
 	endTime         string
@@ -51,20 +52,33 @@ var pkgSubCommandTab = map[string]func(args []string){
 	"build":    pkgBuildMain,
 	"deploy":   pkgDeployMain,
 	"list":     pkgListMain,
-	"destroy":  pkgDestroyMain,
 	"describe": pkgDescribeMain,
 	"help":     pkgHelpMain,
 }
 
+var deploySubCommandTab = map[string]func(args []string){
+	"list":     deployListMain,
+	"describe": deployDescribeMain,
+	"help":     deployHelpMain,
+}
+
+var projSubCommandTab = map[string]func(args []string){
+	"create":   projCreateMain,
+	"destroy":  projDestroyMain,
+	"list":     projListMain,
+	"help":     projHelpMain,
+	"describe": projDescribeMain,
+}
+
 var subCommandTab = map[string]func(args []string){
-	"package":  pkgMain,
-	"describe": describeMain,
-	"help":     helpMain,
-	"config":   configMain,
-	"new":      newMain,
-	"version":  versionMain,
-	"upgrade":  upgradeMain,
-	"logs":     logsMain,
+	"project": projMain,
+	"package": pkgMain,
+	"deploy":  deployMain,
+	"help":    helpMain,
+	"config":  configMain,
+	"version": versionMain,
+	"upgrade": upgradeMain,
+	"logs":    logsMain,
 }
 
 const (
@@ -194,147 +208,20 @@ func pkgDeployMain(args []string) {
 	validateNoConflicts(httpClient, pkg)
 
 	fmt.Printf("Deploying pkgId:%v (%v)...", pkg.Id, pkg.AbsTarballPath())
-	err = pkg.Deploy(bopsdk.DeployOptHttpClient(httpClient))
+	// @todo specify envId
+	deployId, err := pkg.Deploy("", bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Started\nDeploying takes about 10 minutes. You can check deploy progress with:\n\t'bopmatic package describe --pkgid %v'\n",
-		pkg.Id)
+	fmt.Printf("Started\nDeploying takes about 10 minutes. You can check deploy progress with:\n\t'bopmatic deploy describe --deployid %v'\n",
+		deployId)
 }
 
 func validateNoConflicts(httpClient *http.Client, pkg *bopsdk.Package) {
-	fmt.Printf("Checking for project %v conflicts...", pkg.Proj.Desc.Name)
-
-	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-
-	for _, existingPkg := range pkgs {
-		if pkg.Proj.Desc.Name != existingPkg.ProjectName {
-			continue
-		}
-
-		descReply, err := bopsdk.Describe(existingPkg.PackageId,
-			bopsdk.DeployOptHttpClient(httpClient))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
-		switch descReply.PackageState {
-		case pb.PackageState_INVALID:
-			fallthrough
-		case pb.PackageState_PRODUCTION:
-			continue
-		default:
-			fmt.Fprintf(os.Stderr, "\nExisting pkgid:%v for project %v is currently transitioning; please wait until this completes before attempting to deploy a new package for %v\n",
-				existingPkg.PackageId, existingPkg.ProjectName,
-				existingPkg.ProjectName)
-			fmt.Fprintf(os.Stderr, "You can monitor progress with:\n\t'bopmatic package describe --pkgid %v'\n",
-				existingPkg.PackageId)
-			os.Exit(1)
-		}
-	}
-}
-
-func pkgDestroyMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
-	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"Failed to get user creds; did you run bompatic config? err: %v\n",
-			err)
-		os.Exit(1)
-	}
-
-	type destroyOpts struct {
-		common commonOpts
-	}
-
-	var opts destroyOpts
-
-	f := flag.NewFlagSet("bopmatic package destroy", flag.ExitOnError)
-	setCommonFlags(f, &opts.common)
-
-	err = f.Parse(args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	if opts.common.packageId == "" {
-		fmt.Fprintf(os.Stderr, "Please specify package id with --pkgid. If you don't know this, try 'bopmatic list'\n")
-		os.Exit(1)
-	}
-
-	fmt.Printf("Checking for existing packages...")
-	pkgs, err := bopsdk.List("", bopsdk.DeployOptHttpClient(httpClient))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	found := false
-	for _, pkg := range pkgs {
-		if pkg.PackageId == opts.common.packageId {
-			found = true
-		}
-	}
-	if !found {
-		fmt.Printf("\nPackage id %v no longer exists; you can upload a new one with:\n\t'bopmatic package deploy'\n",
-			opts.common.packageId)
-		os.Exit(1)
-	}
-
-	fmt.Printf("ok. Checking existing pkgId:%v status...", opts.common.packageId)
-	descReply, err := bopsdk.Describe(opts.common.packageId,
-		bopsdk.DeployOptHttpClient(httpClient))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	switch descReply.PackageState {
-	case pb.PackageState_UPLOADING:
-		fallthrough
-	case pb.PackageState_UPLOADED:
-		fallthrough
-	case pb.PackageState_VALIDATING:
-		fallthrough
-	case pb.PackageState_BUILDING:
-		fallthrough
-	case pb.PackageState_DEPLOYING:
-		fmt.Printf("ok.\nBopmatic ServiceRunner is currently deploying pkgid:%v; please try deleting again later once this has completed.\n",
-			opts.common.packageId)
-		os.Exit(1)
-	case pb.PackageState_INVALID:
-		fallthrough
-	case pb.PackageState_PRODUCTION:
-		fmt.Printf("ok.\nDestroying pkgId:%v...", opts.common.packageId)
-		err = bopsdk.Delete(opts.common.packageId,
-			bopsdk.DeployOptHttpClient(httpClient))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("\nSuccessfully started destroying pkgId:%v. Teardown takes about 10 minutes. You can check progress with:\n\t'bopmatic package describe --pkgid %v'\n",
-			opts.common.packageId, opts.common.packageId)
-	case pb.PackageState_DEACTIVATING:
-		fallthrough
-	case pb.PackageState_DELETING:
-		fmt.Printf("ok.\nBopmatic ServiceRunner is already destroying pkgid:%v. You can check progress with:\n\t'bopmatic package describe --pkgid %v'\n",
-			opts.common.packageId, opts.common.packageId)
-		os.Exit(1)
-	case pb.PackageState_DELETED:
-		fmt.Printf("ok.\nBopmatic ServiceRunner has already destroyed pkgid:%v\n",
-			opts.common.packageId)
-		os.Exit(1)
-	case pb.PackageState_SUPPORT_NEEDED:
-		fallthrough
-	case pb.PackageState_UNKNOWN_PKG_STATE:
-		fallthrough
-	default:
-		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
-	}
+	// @todo for UX purposes consider evaluating conflicts client-side here
+	// rather than just relying on server-side conflict checks
 }
 
 func pkgListMain(args []string) {
@@ -360,10 +247,10 @@ func pkgListMain(args []string) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if opts.common.projectName == "" {
+	if opts.common.projectId == "" {
 		proj, err := bopsdk.NewProject(opts.common.projectFilename)
 		if err == nil {
-			opts.common.projectName = proj.Desc.Name
+			opts.common.projectId = proj.Desc.Id
 		}
 	}
 
@@ -375,7 +262,7 @@ func pkgListMain(args []string) {
 	//		opts.common.projectName)
 	//}
 
-	pkgs, err := bopsdk.List(opts.common.projectName,
+	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -388,7 +275,7 @@ func pkgListMain(args []string) {
 		fmt.Printf("\nProject\t\tPackageId\n")
 
 		for _, pkg := range pkgs {
-			fmt.Printf("%v\t\t%v\n", pkg.ProjectName, pkg.PackageId)
+			fmt.Printf("%v\t\t%v\n", pkg.ProjId, pkg.PackageId)
 		}
 	}
 }
@@ -398,6 +285,13 @@ var pkgHelpText string
 
 func pkgHelpMain(args []string) {
 	fmt.Printf(pkgHelpText)
+}
+
+//go:embed deployHelp.txt
+var deployHelpText string
+
+func deployHelpMain(args []string) {
+	fmt.Printf(deployHelpText)
 }
 
 func pkgDescribeMain(args []string) {
@@ -424,12 +318,12 @@ func pkgDescribeMain(args []string) {
 		os.Exit(1)
 	}
 	if opts.common.packageId == "" {
-		fmt.Fprintf(os.Stderr, "Please specify package id with --pkgid. If you don't know this, try 'bopmatic list'\n")
+		fmt.Fprintf(os.Stderr, "Please specify package id with --pkgid. If you don't know this, try 'bopmatic package list'\n")
 		os.Exit(1)
 	}
 
 	fmt.Printf("Listing packages...")
-	pkgs, err := bopsdk.List(opts.common.projectName,
+	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -449,41 +343,34 @@ func pkgDescribeMain(args []string) {
 	}
 
 	fmt.Printf("Describing pkgId:%v...", opts.common.packageId)
-	descReply, err := bopsdk.Describe(opts.common.packageId,
+	pkgDesc, err := bopsdk.Describe(opts.common.packageId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nProject:%v PackageId:%v State:%v\n",
-		descReply.Desc.ProjectName, descReply.Desc.PackageId,
-		descReply.PackageState)
-	switch descReply.PackageState {
+	fmt.Printf("\nProject:%v PackageId:%v State:%v Size:%v UploadTime:%v\n",
+		pkgDesc.ProjId, pkgDesc.PackageId, pkgDesc.State, pkgDesc.PackageSize,
+		pkgDesc.UploadTime)
+
+	switch pkgDesc.State {
 	case pb.PackageState_UPLOADING:
 		fmt.Printf("\nYour project is being uploaded to Bopmatic ServiceRunner\n")
 	case pb.PackageState_UPLOADED:
 		fmt.Printf("\nYour project package was uploaded Bopmatic ServiceRunner and will next be validated\n")
-	case pb.PackageState_VALIDATING:
+	case pb.PackageState_PKG_VALIDATING:
 		fmt.Printf("\nBopmatic ServiceRunner is validating your project package\n")
 	case pb.PackageState_INVALID:
 		fmt.Printf("\nSomething is wrong with your project package and it cannot be deployed. Please delete it with:\n\t'bopmatic destroy --pkgid %v\n",
-			descReply.Desc.PackageId)
-	case pb.PackageState_BUILDING:
+			pkgDesc.PackageId)
+	case pb.PackageState_PKG_BUILDING:
 		fmt.Printf("\nBopmatic ServiceRunner is building infrastructure for your project package\n")
-	case pb.PackageState_DEPLOYING:
-		fmt.Printf("\nBopmatic ServiceRunner is deploying infrastructure for your project package\n")
-	case pb.PackageState_PRODUCTION:
-		fmt.Printf("\nBopmatic ServiceRunner has deployed your project. Try it out:\n\n")
-		fmt.Printf("\tWebsite: %v\n", descReply.SiteEndpoint)
-		printExampleCurl(descReply)
-	case pb.PackageState_DEACTIVATING:
-		fmt.Printf("\nBopmatic ServiceRunner is currently removing your project package from production.\n")
-	case pb.PackageState_DELETING:
-		fmt.Printf("\nBopmatic ServiceRunner is currently deleting your project package\n")
+	case pb.PackageState_BUILT:
+		fmt.Printf("\nBopmatic ServiceRunner has built your project.\n\n")
 	case pb.PackageState_DELETED:
 		fmt.Printf("\nBopmatic ServiceRunner has deleted your project package\n")
-	case pb.PackageState_SUPPORT_NEEDED:
+	case pb.PackageState_PKG_SUPPORT_NEEDED:
 		fallthrough
 	case pb.PackageState_UNKNOWN_PKG_STATE:
 		fallthrough
@@ -493,29 +380,18 @@ func pkgDescribeMain(args []string) {
 }
 
 func printExampleCurl(descReply *pb.DescribePackageReply) {
-	if len(descReply.RpcEndpoints) == 0 {
-		return
-	}
-
-	fmt.Printf("\tAPI Endpoints(%v):\n", len(descReply.RpcEndpoints))
-	for _, rpc := range descReply.RpcEndpoints {
-		fmt.Printf("\t\t%v\n", rpc)
-	}
-	firstApiUrl := descReply.RpcEndpoints[0]
-
-	fmt.Printf("\nYou can invoke your API directly from your shell via:\n")
-
-	if !strings.Contains(firstApiUrl, "SayHello") {
-		fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	<req> %v\n",
-			firstApiUrl)
-	} else {
-		// @todo temporary hack to provide cut/pasteable curl calls for helloworld
-		fmt.Printf("\tcurl -X POST -H \"Content-Type: application/json\" --data	'{\"name\": \"somename\"}' %v\n",
-			firstApiUrl)
-	}
+	// @todo re-implement w/ ListServices() && DescribeService()
 }
 
-func describeMain(args []string) {
+func projDescribeMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
 	type describeOpts struct {
 		common commonOpts
 	}
@@ -524,22 +400,35 @@ func describeMain(args []string) {
 
 	f := flag.NewFlagSet("bopmatic describe", flag.ExitOnError)
 	setCommonFlags(f, &opts.common)
-	err := f.Parse(args)
+	err = f.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	proj, err := bopsdk.NewProject(opts.common.projectFilename)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projfile or run from within a Bopmatic project directory.\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+	if opts.common.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.common.projectFilename)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
+			os.Exit(1)
 		}
-		os.Exit(1)
+		opts.common.projectId = proj.Desc.Id
 	}
 
-	fmt.Printf("%v", proj)
+	projDesc, err := bopsdk.DescribeProject(opts.common.projectId,
+		bopsdk.DeployOptHttpClient(httpClient))
+
+	fmt.Printf("Name: %v\n", projDesc.Header.Name)
+	fmt.Printf("Id: %v\n", projDesc.Id)
+	fmt.Printf("DnsPrefix: %v\n", projDesc.Header.DnsPrefix)
+	fmt.Printf("DnsDomain: %v\n", projDesc.Header.DnsDomain)
+	fmt.Printf("Created: %v\n", projDesc.CreateTime)
+	fmt.Printf("State: %v\n", projDesc.State)
+	fmt.Printf("Active deployments: %v\n", projDesc.ActiveDeployIds)
+	fmt.Printf("Pending deployments: %v\n", projDesc.PendingDeployIds)
 }
 
 //go:embed logsHelp.txt
@@ -569,20 +458,20 @@ func logsMain(args []string) {
 		os.Exit(1)
 	}
 
-	projName := opts.common.projectName
+	projId := opts.common.projectId
 	var proj *bopsdk.Project
-	if projName == "" {
+	if projId == "" {
 		proj, err = bopsdk.NewProject(opts.common.projectFilename)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintf(os.Stderr, "Please specify --projname or run from within a Bopmatic project directory.\n")
+				fmt.Fprintf(os.Stderr, "Please specify --projid or run from within a Bopmatic project directory.\n")
 				fmt.Fprintf(os.Stderr, "%v\n", logsHelpText)
 			} else {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 			}
 			os.Exit(1)
 		}
-		projName = proj.Desc.Name
+		projId = proj.Desc.Id
 	}
 	svcName := opts.common.serviceName
 	if svcName == "" {
@@ -596,7 +485,7 @@ func logsMain(args []string) {
 				}
 
 				fmt.Fprintf(os.Stderr, "Please specify --svcname. Project %v currently has %v services: %v\n",
-					projName, len(svcList), svcList)
+					projId, len(svcList), svcList)
 				os.Exit(1)
 			}
 		} else {
@@ -633,7 +522,8 @@ func logsMain(args []string) {
 		os.Exit(1)
 	}
 
-	err = bopsdk.GetLogs(projName, svcName, startTime, endTime,
+	// @todo specify environment id
+	err = bopsdk.GetLogs(projId, "", svcName, startTime, endTime,
 		bopsdk.GetLogsOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -1213,7 +1103,8 @@ func createProjectFromTemplate(serviceTemplates, clientTemplates map[string]Proj
 	return projectDir, projectFile
 }
 
-func newMain(args []string) {
+func projCreateMain(args []string) {
+	// @todo get project id via sr's CreateProject() primitive
 	haveBuildImg, err := util.HasBopmaticBuildImage()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -1221,6 +1112,14 @@ func newMain(args []string) {
 	}
 	if !haveBuildImg {
 		fmt.Fprintf(os.Stderr, "Could not find Bopmatic Build Image; please run:\n\n\tbopmatic config\n")
+		os.Exit(1)
+	}
+
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
 		os.Exit(1)
 	}
 
@@ -1239,11 +1138,30 @@ func newMain(args []string) {
 		os.Exit(1)
 	}
 
+	err = proj.Register(bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Created project %v but it failed to register: %v",
+			projectDir, err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Successfully created .%v%v:\n%v", string(os.PathSeparator),
 		projectDir, proj.String())
 
 	fmt.Printf("\nTo build your new project next run:\n\t'cd %v; bopmatic package build'\n",
 		projectDir)
+}
+
+func projDestroyMain(args []string) {
+	// @todo implement me
+	fmt.Fprintf(os.Stderr, "Not yet implemented\n")
+}
+
+//go:embed projHelp.txt
+var projHelpText string
+
+func projHelpMain(args []string) {
+	fmt.Printf(projHelpText)
 }
 
 //go:embed version.txt
@@ -1266,7 +1184,7 @@ func isBrewVersion() bool {
 func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
 	f.StringVar(&o.projectFilename, "projfile", bopsdk.DefaultProjectFilename,
 		"Bopmatic project filename")
-	f.StringVar(&o.projectName, "projname", "", "Bopmatic project name")
+	f.StringVar(&o.projectId, "projid", "", "Bopmatic project id")
 	f.StringVar(&o.packageId, "pkgid", "",
 		"Bopmatic project package identifier")
 	f.StringVar(&o.serviceName, "svcname", "",
@@ -1392,4 +1310,217 @@ func main() {
 	subCommand(args)
 
 	os.Exit(exitStatus)
+}
+
+func deployListMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type listOpts struct {
+		common commonOpts
+	}
+
+	var opts listOpts
+
+	f := flag.NewFlagSet("bopmatic deploy list", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.common.projectFilename)
+		if err == nil {
+			opts.common.projectId = proj.Desc.Id
+		}
+	}
+
+	fmt.Printf("Listing deployments for projId:%v...", opts.common.projectId)
+
+	// @todo add envId
+	deployments, err := bopsdk.ListDeployments(opts.common.projectId, "",
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	if len(deployments) == 0 {
+		fmt.Printf("\nNo currently deployed packages\n")
+	} else {
+		fmt.Printf("\nDeployment Id\n")
+
+		for _, deployId := range deployments {
+			fmt.Printf("%v\n", deployId)
+		}
+	}
+}
+
+func projListMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type listOpts struct {
+		common commonOpts
+	}
+
+	var opts listOpts
+
+	f := flag.NewFlagSet("bopmatic proj list", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.common.projectFilename)
+		if err == nil {
+			opts.common.projectId = proj.Desc.Id
+		}
+	}
+
+	fmt.Printf("Listing projects...")
+
+	// @todo add envId
+	projects, err := bopsdk.ListProjects(bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	if len(projects) == 0 {
+		fmt.Printf("\nNo projects exist; create a new one with 'bopmatic project create'\n")
+	} else {
+		fmt.Printf("\nProject Id\n")
+
+		for _, projId := range projects {
+			fmt.Printf("%v\n", projId)
+		}
+	}
+}
+
+func deployMain(args []string) {
+	exitStatus := 0
+
+	deploySubCommandName := "help"
+	if len(args) == 0 {
+		exitStatus = 1
+	} else {
+		deploySubCommandName = args[0]
+	}
+
+	deploySubCommand, ok := deploySubCommandTab[deploySubCommandName]
+	if !ok {
+		exitStatus = 1
+		deploySubCommand = deployHelpMain
+	}
+
+	if len(args) > 0 {
+		args = args[1:]
+	}
+
+	deploySubCommand(args)
+
+	os.Exit(exitStatus)
+}
+
+func projMain(args []string) {
+	exitStatus := 0
+
+	projSubCommandName := "help"
+	if len(args) == 0 {
+		exitStatus = 1
+	} else {
+		projSubCommandName = args[0]
+	}
+
+	projSubCommand, ok := projSubCommandTab[projSubCommandName]
+	if !ok {
+		exitStatus = 1
+		projSubCommand = projHelpMain
+	}
+
+	if len(args) > 0 {
+		args = args[1:]
+	}
+
+	projSubCommand(args)
+
+	os.Exit(exitStatus)
+}
+
+func deployDescribeMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type describeOpts struct {
+		common commonOpts
+	}
+
+	var opts describeOpts
+
+	f := flag.NewFlagSet("bopmatic deploy describe", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.deployId == "" {
+		fmt.Fprintf(os.Stderr, "Please specify deployment id with --deployid. If you don't know this, try 'bopmatic deployment list'\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Describing deployId:%v...", opts.common.deployId)
+	deployDesc, err := bopsdk.DescribeDeployment(opts.common.deployId,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\nDeployment Id:%v\n\tProject Id:%v\n\tPackage Id:%v\n\tEnvironment Id:%v\n\tType:%v\n\tInitiator:%v\n\tState:%v\n\tDetail:%v\n\tCreate Time:%v\n\tValidation Start Time:%v\n\tBuild Start Time:%v\n\tDeploy Start Time:%v\n\tCompletion Time:%v\n",
+		deployDesc.Id, deployDesc.Header.ProjId, deployDesc.Header.PkgId,
+		deployDesc.Header.EnvId, deployDesc.Header.Type,
+		deployDesc.Header.Initiator, deployDesc.State, deployDesc.StateDetail,
+		deployDesc.CreateTime, deployDesc.ValidationStartTime,
+		deployDesc.BuildStartTime, deployDesc.DeployStartTime,
+		deployDesc.EndTime)
+
+	switch deployDesc.State {
+	case pb.DeploymentState_CREATED:
+		fmt.Printf("\nYour deployment has been created and will be validated shortly\n")
+	case pb.DeploymentState_DPLY_VALIDATING:
+		fmt.Printf("\nBopmatic ServiceRunner is validating your project package\n")
+	case pb.DeploymentState_DPLY_BUILDING:
+		fmt.Printf("\nBopmatic ServiceRunner is building infrastructure for your project package\n")
+	case pb.DeploymentState_DEPLOYING:
+		fmt.Printf("\nBopmatic ServiceRunner is deploying your package into production\n")
+	case pb.DeploymentState_SUCCESS:
+		fmt.Printf("\nBopmatic ServiceRunner has successully completed this	deployment of your package\n")
+	case pb.DeploymentState_FAILED:
+		fallthrough
+	case pb.DeploymentState_UNKNOWN_DEPLOY_STATE:
+		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
+	}
 }

@@ -1,0 +1,15 @@
+Usage:
+  bopmatic deploy [command]
+
+Available Package Commands:
+  list           Query Bopmatic ServiceRunner for a list of deployments which have been
+                 previously been created.
+  describe       Query Bopmatic ServiceRunner for details regarding a deployment
+  help           This help screen
+
+Common Flags:
+  --projid                           Bopmatic project id; when run from a Bopamtic project
+                                     directory this will default to your current Bopmatic
+				     project's id
+  --envid                            Bopmatic environment identifier; this will default to
+                                     your project's prod environment

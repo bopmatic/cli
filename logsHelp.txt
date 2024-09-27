@@ -2,9 +2,9 @@ Usage:
   bopmatic logs [--projname <projectName>] [--svcname <serviceName>] [--starttime <startTime>] [--endtime <endTime>]
 
 Flags:
-  --projname                         Bopmatic project name; when run from a Bopamtic project
+  --projid                           Bopmatic project id; when run from a Bopamtic project
                                      directory this will default to your current Bopmatic
-                                     project's name
+				     project's id
   --svcname                          Service name within your Bopmatic project; this will
                                      default to your current Bopmatic project's only service
                                      if there is only one

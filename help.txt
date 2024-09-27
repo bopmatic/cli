@@ -1,17 +1,17 @@
 Bopmatic - The easy button for serverless
 
-To begin working with Bopmatic, run the `bopmatic new` command:
+To begin working with Bopmatic, run the `bopmatic create` command:
 
-    $ bopmatic new
+    $ bopmatic project create
 
 This will prompt you to create a new project in your language of choice.
 
 The most common commands from there are:
 
-    - bopmatic package build    : Build your project locally
-    - bopmatic package deploy   : Send your project to Bopmatic ServiceRunner for deployment
-    - bopmatic package describe : Request details regarding your deployed package
-    - bopmatic package destroy  : Remove a previously sent deployment from Bopmatic ServiceRunner
+    - bopmatic package build    : Build your project locally into a package ready to be deployed
+    - bopmatic package deploy   : Send your built package to Bopmatic ServiceRunner for deployment
+    - bopmatic deploy describe  : Request details regarding the package you deployed
+    - bopmatic project destroy  : Delete a Bopmatic project and remove it from production
 
 For more information, please visit the project page: https://www.bopmatic.com/docs/
 
@@ -19,12 +19,14 @@ Usage:
   bopmatic [command]
 
 Available Commands:
-  describe       Describe the contents of a Bopmatic project
+  project        Create, Describe, or Destroy a Bopmatic project.
+                   run 'bopmatic project help' for more details
   package        Create, Deploy, Destroy, or List Bopmatic project packages
                    run 'bopmatic package help' for more details
+  deploy         Describe or List Bopmatic project deployments
+                   run 'bopmatic deploy help' for more details
   help           This help screen
   config         Set Bopmatic configuration
-  new            Create a new Bopmatic project
   version        Print Bomatic CLI's version number
   upgrade        Upgrade Bopmatic CLI to the latest version
   logs           Retrieve logs from your Bopmatic project services

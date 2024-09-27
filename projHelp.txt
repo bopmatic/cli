@@ -1,0 +1,14 @@
+Usage:
+  bopmatic project [command]
+
+Available Project Commands:
+  create         Create a new Bopmatic project
+  destroy        Destroy an existing Bopmatic project
+  list           List existing Bopmatic projects
+  describe       Describe a Bopmatic project
+  help           This help screen
+
+Common Flags:
+  --projid                           Bopmatic project id; when run from a Bopamtic project
+                                     directory this will default to your current Bopmatic
+				     project's id
