@@ -6,8 +6,8 @@ github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de h1:FxWPpzIjnTlhP
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de/go.mod h1:DCaWoUhZrYW9p1lxo/cm8EmUOOzAPSEZNGF2DK1dJgw=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
-github.com/bopmatic/sdk/golang v0.0.0-20241001203811-c6b2ef7e5b15 h1:WdVIUpLs9JJ/mG0XlrvuQaTGlVacEcWium0nW5aQXtg=
-github.com/bopmatic/sdk/golang v0.0.0-20241001203811-c6b2ef7e5b15/go.mod h1:iNGGN0EM/E+Tjz5QG3aaKIW3LxRcodLm4H1GaUp53vs=
+github.com/bopmatic/sdk/golang v0.0.0-20241002154859-bab36d8f2a4c h1:IZJScyPTGbHNU0dsxdXlD7ptZWUe/EgdHRC+olD+YbE=
+github.com/bopmatic/sdk/golang v0.0.0-20241002154859-bab36d8f2a4c/go.mod h1:iNGGN0EM/E+Tjz5QG3aaKIW3LxRcodLm4H1GaUp53vs=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=

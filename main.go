@@ -1187,6 +1187,8 @@ func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
 	f.StringVar(&o.projectId, "projid", "", "Bopmatic project id")
 	f.StringVar(&o.packageId, "pkgid", "",
 		"Bopmatic project package identifier")
+	f.StringVar(&o.deployId, "deployid", "",
+		"Bopmatic deployment identifier")
 	f.StringVar(&o.serviceName, "svcname", "",
 		"Name of a service within your Bopmatic project")
 	f.StringVar(&o.startTime, "starttime", "",
