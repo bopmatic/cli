@@ -4,6 +4,7 @@ Usage:
 Available Project Commands:
   create         Create a new Bopmatic project
   destroy        Destroy an existing Bopmatic project
+  deactivate     Deactivate an active project from an environment
   list           List existing Bopmatic projects
   describe       Describe a Bopmatic project
   help           This help screen

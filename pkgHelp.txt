@@ -3,6 +3,7 @@ Usage:
 
 Available Package Commands:
   build          Build a package from your Bopmatic project
+  delete         Delete a previously deployed package
   deploy         Upload a locally built package to Bopmatic ServiceRunner to deploy into
                  production.
   list           Query Bopmatic ServiceRunner for a list of packages which have been previously

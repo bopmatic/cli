@@ -4,7 +4,7 @@ go 1.22.3
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/bopmatic/sdk/golang v0.0.0-20241002154859-bab36d8f2a4c
+	github.com/bopmatic/sdk/golang v0.0.0-20241002195322-b4145d3a5061
 	github.com/docker/docker v27.3.1+incompatible
 )
 

@@ -52,6 +52,7 @@ var pkgSubCommandTab = map[string]func(args []string){
 	"build":    pkgBuildMain,
 	"deploy":   pkgDeployMain,
 	"list":     pkgListMain,
+	"delete":   pkgDeleteMain,
 	"describe": pkgDescribeMain,
 	"help":     pkgHelpMain,
 }
@@ -63,11 +64,12 @@ var deploySubCommandTab = map[string]func(args []string){
 }
 
 var projSubCommandTab = map[string]func(args []string){
-	"create":   projCreateMain,
-	"destroy":  projDestroyMain,
-	"list":     projListMain,
-	"help":     projHelpMain,
-	"describe": projDescribeMain,
+	"create":     projCreateMain,
+	"destroy":    projDestroyMain,
+	"deactivate": projDeactivateMain,
+	"list":       projListMain,
+	"help":       projHelpMain,
+	"describe":   projDescribeMain,
 }
 
 var subCommandTab = map[string]func(args []string){
@@ -368,7 +370,7 @@ func pkgDescribeMain(args []string) {
 		fmt.Printf("\nBopmatic ServiceRunner is building infrastructure for your project package\n")
 	case pb.PackageState_BUILT:
 		fmt.Printf("\nBopmatic ServiceRunner has built your project.\n\n")
-	case pb.PackageState_DELETED:
+	case pb.PackageState_PKG_DELETED:
 		fmt.Printf("\nBopmatic ServiceRunner has deleted your project package\n")
 	case pb.PackageState_PKG_SUPPORT_NEEDED:
 		fallthrough
@@ -377,6 +379,64 @@ func pkgDescribeMain(args []string) {
 	default:
 		fmt.Printf("\nAn error occurred within Bopmatic ServiceRunner and a support staff member needs to examine the situation.\n")
 	}
+}
+
+func pkgDeleteMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type deleteOpts struct {
+		common commonOpts
+	}
+
+	var opts deleteOpts
+
+	f := flag.NewFlagSet("bopmatic package delete", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.packageId == "" {
+		fmt.Fprintf(os.Stderr, "Please specify package id with --pkgid. If you don't know this, try 'bopmatic package list'\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Listing packages...")
+	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	found := false
+	for _, pkg := range pkgs {
+		if pkg.PackageId == opts.common.packageId {
+			found = true
+		}
+	}
+
+	if !found {
+		fmt.Printf("\nPackage id %v no longer exists\n", opts.common.packageId)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Deleting pkgId:%v...", opts.common.packageId)
+	err = bopsdk.DeletePackage(opts.common.packageId,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\nDeleted pkgId:%v", opts.common.packageId)
 }
 
 func printExampleCurl(descReply *pb.DescribePackageReply) {
@@ -398,7 +458,7 @@ func projDescribeMain(args []string) {
 
 	var opts describeOpts
 
-	f := flag.NewFlagSet("bopmatic describe", flag.ExitOnError)
+	f := flag.NewFlagSet("bopmatic project describe", flag.ExitOnError)
 	setCommonFlags(f, &opts.common)
 	err = f.Parse(args)
 	if err != nil {
@@ -1153,8 +1213,92 @@ func projCreateMain(args []string) {
 }
 
 func projDestroyMain(args []string) {
-	// @todo implement me
-	fmt.Fprintf(os.Stderr, "Not yet implemented\n")
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type destroyOpts struct {
+		common commonOpts
+	}
+
+	var opts destroyOpts
+	f := flag.NewFlagSet("bopmatic project destroy", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.common.projectFilename)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
+			os.Exit(1)
+		}
+		opts.common.projectId = proj.Desc.Id
+	}
+
+	err = bopsdk.UnregisterProject(opts.common.projectId,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to unregister project: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func projDeactivateMain(args []string) {
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"Failed to get user creds; did you run bompatic config? err: %v\n",
+			err)
+		os.Exit(1)
+	}
+
+	type deactivateOpts struct {
+		common commonOpts
+	}
+
+	var opts deactivateOpts
+	f := flag.NewFlagSet("bopmatic project deactivate", flag.ExitOnError)
+	setCommonFlags(f, &opts.common)
+	err = f.Parse(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	if opts.common.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.common.projectFilename)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
+			os.Exit(1)
+		}
+		opts.common.projectId = proj.Desc.Id
+	}
+
+	// @todo implement environment ids
+	fmt.Printf("Deactivating projId:%v...", opts.common.projectId)
+	deployId, err := bopsdk.DeactivateProject("", opts.common.projectId,
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to deactivate project: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Started\nDeactivationg takes about 10 minutes. You can check progress with:\n\t'bopmatic deploy describe --deployid %v'\n",
+		deployId)
 }
 
 //go:embed projHelp.txt
