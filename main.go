@@ -324,26 +324,6 @@ func pkgDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Listing packages...")
-	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
-		bopsdk.DeployOptHttpClient(httpClient))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	found := false
-	for _, pkg := range pkgs {
-		if pkg.PackageId == opts.common.packageId {
-			found = true
-		}
-	}
-
-	if !found {
-		fmt.Printf("\nPackage id %v no longer exists; you can upload a new one with:\n\t'bopmatic package deploy'\n",
-			opts.common.packageId)
-		os.Exit(1)
-	}
-
 	fmt.Printf("Describing pkgId:%v...", opts.common.packageId)
 	pkgDesc, err := bopsdk.Describe(opts.common.packageId,
 		bopsdk.DeployOptHttpClient(httpClient))
@@ -1246,12 +1226,16 @@ func projDestroyMain(args []string) {
 		opts.common.projectId = proj.Desc.Id
 	}
 
+	fmt.Printf("Destroying projectId:%v...", opts.common.projectId)
 	err = bopsdk.UnregisterProject(opts.common.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unregister project: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to destroy project: %v\n", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf("done.\nProject %v was successfully deleted\n",
+		opts.common.projectId)
 }
 
 func projDeactivateMain(args []string) {
@@ -1290,7 +1274,7 @@ func projDeactivateMain(args []string) {
 
 	// @todo implement environment ids
 	fmt.Printf("Deactivating projId:%v...", opts.common.projectId)
-	deployId, err := bopsdk.DeactivateProject("", opts.common.projectId,
+	deployId, err := bopsdk.DeactivateProject(opts.common.projectId, "",
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to deactivate project: %v\n", err)
