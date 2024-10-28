@@ -460,6 +460,10 @@ func projDescribeMain(args []string) {
 
 	projDesc, err := bopsdk.DescribeProject(opts.common.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to describe project: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Printf("Name: %v\n", projDesc.Header.Name)
 	fmt.Printf("Id: %v\n", projDesc.Id)
