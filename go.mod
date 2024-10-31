@@ -1,10 +1,10 @@
 module github.com/bopmatic/cli
 
-go 1.22.3
+go 1.23.2
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/bopmatic/sdk/golang v0.0.0-20241028233942-7e182cd40974
+	github.com/bopmatic/sdk/golang v0.0.0-20241031165517-69d97a84794c
 	github.com/docker/docker v27.3.1+incompatible
 )
 

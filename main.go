@@ -48,6 +48,11 @@ type commonOpts struct {
 	endTime         string
 }
 
+type projOpts struct {
+	projectFilename string
+	projectId       string
+}
+
 var pkgSubCommandTab = map[string]func(args []string){
 	"build":    pkgBuildMain,
 	"deploy":   pkgDeployMain,
@@ -432,47 +437,59 @@ func projDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	type describeOpts struct {
-		common commonOpts
-	}
-
-	var opts describeOpts
-
+	var opts projOpts
 	f := flag.NewFlagSet("bopmatic project describe", flag.ExitOnError)
-	setCommonFlags(f, &opts.common)
+	setProjFlags(f, &opts)
+
 	err = f.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if opts.common.projectId == "" {
-		proj, err := bopsdk.NewProject(opts.common.projectFilename)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-			}
-			os.Exit(1)
-		}
-		opts.common.projectId = proj.Desc.Id
+	err = setProjIdFromOpts(&opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
-	projDesc, err := bopsdk.DescribeProject(opts.common.projectId,
+	projDesc, err := bopsdk.DescribeProject(opts.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to describe project: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Name: %v\n", projDesc.Header.Name)
-	fmt.Printf("Id: %v\n", projDesc.Id)
-	fmt.Printf("DnsPrefix: %v\n", projDesc.Header.DnsPrefix)
-	fmt.Printf("DnsDomain: %v\n", projDesc.Header.DnsDomain)
-	fmt.Printf("Created: %v\n", projDesc.CreateTime)
-	fmt.Printf("State: %v\n", projDesc.State)
-	fmt.Printf("Active deployments: %v\n", projDesc.ActiveDeployIds)
-	fmt.Printf("Pending deployments: %v\n", projDesc.PendingDeployIds)
+	fmt.Printf("Project %v:\n", projDesc.Id)
+	fmt.Printf("\tName: %v\n", projDesc.Header.Name)
+	fmt.Printf("\tDnsPrefix: %v\n", projDesc.Header.DnsPrefix)
+	fmt.Printf("\tDnsDomain: %v\n", projDesc.Header.DnsDomain)
+	fmt.Printf("\tCreated: %v (%v)\n", unixTime2Utc(projDesc.CreateTime),
+		unixTime2Local(projDesc.CreateTime))
+	fmt.Printf("\tState: %v\n", projDesc.State)
+	fmt.Printf("\tActive deployments: %v\n", projDesc.ActiveDeployIds)
+	fmt.Printf("\tPending deployments: %v\n", projDesc.PendingDeployIds)
+}
+
+func setProjIdFromOpts(opts *projOpts) error {
+	if opts.projectId == "" {
+		proj, err := bopsdk.NewProject(opts.projectFilename)
+		if err != nil {
+			err = fmt.Errorf("Could not find project file '%v': %v. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n",
+				opts.projectFilename, err)
+			return err
+		}
+		opts.projectId = proj.Desc.Id
+	}
+
+	return nil
+}
+
+func unixTime2Local(secs uint64) time.Time {
+	return time.Unix(int64(secs), 0)
+}
+
+func unixTime2Utc(secs uint64) time.Time {
+	return unixTime2Local(secs).UTC()
 }
 
 //go:embed logsHelp.txt
@@ -1205,33 +1222,23 @@ func projDestroyMain(args []string) {
 		os.Exit(1)
 	}
 
-	type destroyOpts struct {
-		common commonOpts
-	}
+	var opts projOpts
+	f := flag.NewFlagSet("bopmatic project describe", flag.ExitOnError)
+	setProjFlags(f, &opts)
 
-	var opts destroyOpts
-	f := flag.NewFlagSet("bopmatic project destroy", flag.ExitOnError)
-	setCommonFlags(f, &opts.common)
 	err = f.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if opts.common.projectId == "" {
-		proj, err := bopsdk.NewProject(opts.common.projectFilename)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-			}
-			os.Exit(1)
-		}
-		opts.common.projectId = proj.Desc.Id
+	err = setProjIdFromOpts(&opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
-	fmt.Printf("Destroying projectId:%v...", opts.common.projectId)
-	err = bopsdk.UnregisterProject(opts.common.projectId,
+	fmt.Printf("Destroying projectId:%v...", opts.projectId)
+	err = bopsdk.UnregisterProject(opts.projectId,
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to destroy project: %v\n", err)
@@ -1239,7 +1246,7 @@ func projDestroyMain(args []string) {
 	}
 
 	fmt.Printf("done.\nProject %v was successfully deleted\n",
-		opts.common.projectId)
+		opts.projectId)
 }
 
 func projDeactivateMain(args []string) {
@@ -1251,34 +1258,24 @@ func projDeactivateMain(args []string) {
 		os.Exit(1)
 	}
 
-	type deactivateOpts struct {
-		common commonOpts
-	}
-
-	var opts deactivateOpts
+	var opts projOpts
 	f := flag.NewFlagSet("bopmatic project deactivate", flag.ExitOnError)
-	setCommonFlags(f, &opts.common)
+	setProjFlags(f, &opts)
+
 	err = f.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if opts.common.projectId == "" {
-		proj, err := bopsdk.NewProject(opts.common.projectFilename)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				fmt.Fprintf(os.Stderr, "Could not find project. Please specify --projid, --projfile, run from within a Bopmatic project directory.\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-			}
-			os.Exit(1)
-		}
-		opts.common.projectId = proj.Desc.Id
+	err = setProjIdFromOpts(&opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
 	// @todo implement environment ids
-	fmt.Printf("Deactivating projId:%v...", opts.common.projectId)
-	deployId, err := bopsdk.DeactivateProject(opts.common.projectId, "",
+	fmt.Printf("Deactivating projId:%v...", opts.projectId)
+	deployId, err := bopsdk.DeactivateProject(opts.projectId, "",
 		bopsdk.DeployOptHttpClient(httpClient))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to deactivate project: %v\n", err)
@@ -1311,6 +1308,12 @@ func isBrewVersion() bool {
 	}
 
 	return false
+}
+
+func setProjFlags(f *flag.FlagSet, o *projOpts) {
+	f.StringVar(&o.projectFilename, "projfile", bopsdk.DefaultProjectFilename,
+		"Bopmatic project filename")
+	f.StringVar(&o.projectId, "projid", "", "Bopmatic project id")
 }
 
 func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
@@ -1506,28 +1509,13 @@ func projListMain(args []string) {
 		os.Exit(1)
 	}
 
-	type listOpts struct {
-		common commonOpts
-	}
-
-	var opts listOpts
-
-	f := flag.NewFlagSet("bopmatic proj list", flag.ExitOnError)
-	setCommonFlags(f, &opts.common)
+	f := flag.NewFlagSet("bopmatic project list", flag.ExitOnError)
 
 	err = f.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if opts.common.projectId == "" {
-		proj, err := bopsdk.NewProject(opts.common.projectFilename)
-		if err == nil {
-			opts.common.projectId = proj.Desc.Id
-		}
-	}
-
-	fmt.Printf("Listing projects...")
 
 	// @todo add envId
 	projects, err := bopsdk.ListProjects(bopsdk.DeployOptHttpClient(httpClient))
@@ -1539,7 +1527,8 @@ func projListMain(args []string) {
 	if len(projects) == 0 {
 		fmt.Printf("\nNo projects exist; create a new one with 'bopmatic project create'\n")
 	} else {
-		fmt.Printf("\nProject Id\n")
+		fmt.Printf("Project Id\n")
+		fmt.Printf("-----------------------\n")
 
 		for _, projId := range projects {
 			fmt.Printf("%v\n", projId)

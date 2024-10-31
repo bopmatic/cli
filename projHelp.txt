@@ -1,15 +1,17 @@
 Usage:
-  bopmatic project [command]
+  bopmatic project [PROJECT COMMAND]
 
-Available Project Commands:
-  create         Create a new Bopmatic project
-  destroy        Destroy an existing Bopmatic project
-  deactivate     Deactivate an active project from an environment
-  list           List existing Bopmatic projects
-  describe       Describe a Bopmatic project
-  help           This help screen
+PROJECT COMMANDs:
+  create                       Create a new Bopmatic project
+  destroy [<PROJECT FLAGS>]    Destroy an existing Bopmatic project
+  deactivate [<PROJECT FLAGS>] Deactivate an active project from an environment
+  list                         List existing Bopmatic projects
+  describe [<PROJECT FLAGS>]   Describe a Bopmatic project
+  help                         This help screen
 
-Common Flags:
-  --projid                           Bopmatic project id; when run from a Bopamtic project
-                                     directory this will default to your current Bopmatic
-				     project's id
+PROJECT FLAGS:
+  --projid                     Bopmatic project id; when run from a Bopamtic project
+                               directory this will default to your current Bopmatic
+                               project's id
+  --projfile                   Bopmatic project file; when run from a Bopamtic project
+                               directory this will default to ./Bopmatic.yaml
