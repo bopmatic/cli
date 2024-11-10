@@ -38,7 +38,7 @@ var projSubCommandTab = map[string]func(args []string){
 }
 
 func projDescribeMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -61,8 +61,7 @@ func projDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	projDesc, err := bopsdk.DescribeProject(opts.projectId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	projDesc, err := bopsdk.DescribeProject(opts.projectId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to describe project: %v\n", err)
 		os.Exit(1)
@@ -330,7 +329,7 @@ func projCreateMain(args []string) {
 		os.Exit(1)
 	}
 
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -353,7 +352,7 @@ func projCreateMain(args []string) {
 		os.Exit(1)
 	}
 
-	err = proj.Register(bopsdk.DeployOptHttpClient(httpClient))
+	err = proj.Register(sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Created project %v but it failed to register: %v",
 			projectDir, err)
@@ -368,7 +367,7 @@ func projCreateMain(args []string) {
 }
 
 func projDestroyMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -392,8 +391,7 @@ func projDestroyMain(args []string) {
 	}
 
 	fmt.Printf("Destroying projectId:%v...", opts.projectId)
-	err = bopsdk.UnregisterProject(opts.projectId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	err = bopsdk.UnregisterProject(opts.projectId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to destroy project: %v\n", err)
 		os.Exit(1)
@@ -404,7 +402,7 @@ func projDestroyMain(args []string) {
 }
 
 func projDeactivateMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -429,8 +427,7 @@ func projDeactivateMain(args []string) {
 
 	// @todo implement environment ids
 	fmt.Printf("Deactivating projId:%v...", opts.projectId)
-	deployId, err := bopsdk.DeactivateProject(opts.projectId, "",
-		bopsdk.DeployOptHttpClient(httpClient))
+	deployId, err := bopsdk.DeactivateProject(opts.projectId, "", sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to deactivate project: %v\n", err)
 		os.Exit(1)
@@ -454,7 +451,7 @@ func setProjFlags(f *flag.FlagSet, o *projOpts) {
 }
 
 func projListMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -471,7 +468,7 @@ func projListMain(args []string) {
 	}
 
 	// @todo add envId
-	projects, err := bopsdk.ListProjects(bopsdk.DeployOptHttpClient(httpClient))
+	projects, err := bopsdk.ListProjects(sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

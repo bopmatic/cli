@@ -7,7 +7,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 
 	_ "embed"
@@ -101,7 +100,7 @@ func pkgBuildMain(args []string) {
 }
 
 func pkgDeployMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -140,11 +139,11 @@ func pkgDeployMain(args []string) {
 		}
 	}
 
-	validateNoConflicts(httpClient, pkg)
+	validateNoConflicts(sdkOpts, pkg)
 
 	fmt.Printf("Deploying pkgId:%v (%v)...", pkg.Id, pkg.AbsTarballPath())
 	// @todo specify envId
-	deployId, err := pkg.Deploy("", bopsdk.DeployOptHttpClient(httpClient))
+	deployId, err := pkg.Deploy("", sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -154,13 +153,13 @@ func pkgDeployMain(args []string) {
 		deployId)
 }
 
-func validateNoConflicts(httpClient *http.Client, pkg *bopsdk.Package) {
+func validateNoConflicts(sdkOpts []bopsdk.DeployOption, pkg *bopsdk.Package) {
 	// @todo for UX purposes consider evaluating conflicts client-side here
 	// rather than just relying on server-side conflict checks
 }
 
 func pkgListMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -197,8 +196,7 @@ func pkgListMain(args []string) {
 	//		opts.common.projectName)
 	//}
 
-	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	pkgs, err := bopsdk.ListPackages(opts.common.projectId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -223,7 +221,7 @@ func pkgHelpMain(args []string) {
 }
 
 func pkgDescribeMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -251,8 +249,7 @@ func pkgDescribeMain(args []string) {
 	}
 
 	fmt.Printf("Describing pkgId:%v...", opts.common.packageId)
-	pkgDesc, err := bopsdk.Describe(opts.common.packageId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	pkgDesc, err := bopsdk.Describe(opts.common.packageId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -288,7 +285,7 @@ func pkgDescribeMain(args []string) {
 }
 
 func pkgDeleteMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -316,8 +313,7 @@ func pkgDeleteMain(args []string) {
 	}
 
 	fmt.Printf("Listing packages...")
-	pkgs, err := bopsdk.ListPackages(opts.common.projectId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	pkgs, err := bopsdk.ListPackages(opts.common.projectId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -335,8 +331,7 @@ func pkgDeleteMain(args []string) {
 	}
 
 	fmt.Printf("Deleting pkgId:%v...", opts.common.packageId)
-	err = bopsdk.DeletePackage(opts.common.packageId,
-		bopsdk.DeployOptHttpClient(httpClient))
+	err = bopsdk.DeletePackage(opts.common.packageId, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

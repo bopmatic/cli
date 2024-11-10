@@ -23,7 +23,7 @@ import (
 var logsHelpText string
 
 func logsMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -111,8 +111,7 @@ func logsMain(args []string) {
 	}
 
 	// @todo specify environment id
-	err = bopsdk.GetLogs(projId, "", svcName, startTime, endTime,
-		bopsdk.GetLogsOptHttpClient(httpClient))
+	err = bopsdk.GetLogs(projId, "", svcName, startTime, endTime, sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

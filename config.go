@@ -6,8 +6,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "embed"
 
@@ -41,6 +43,15 @@ func getConfigKeyPath() (string, error) {
 	return filepath.Join(configPath, "user.key.pem"), nil
 }
 
+func getConfigApiKeyPath() (string, error) {
+	configPath, err := getConfigPath()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(configPath, "apikey"), nil
+}
+
 func configMain(args []string) {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -55,38 +66,69 @@ func configMain(args []string) {
 	}
 
 	haveExisting := true
-	certPath := filepath.Join(configPath, "user.cert.pem")
-	keyPath := filepath.Join(configPath, "user.key.pem")
+	certPath, _ := getConfigCertPath()
+	keyPath, _ := getConfigKeyPath()
+	apiKeyPath, _ := getConfigApiKeyPath()
 
-	for _, f := range []string{certPath, keyPath} {
+	for _, f := range []string{certPath, keyPath, apiKeyPath} {
 		_, err = os.Stat(f)
 		if os.IsNotExist(err) {
 			haveExisting = false
 		} else if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not read %v: %v", f, err)
+			os.Exit(1)
+		}
+
+		shouldReplace := "N"
+		if haveExisting {
+			fmt.Printf("Your %v is already installed; replace? (Y/N) [N]: ", f)
+			fmt.Scanf("%s", &shouldReplace)
+			shouldReplace = strings.ToUpper(shouldReplace)
+			shouldReplace = strings.TrimSpace(shouldReplace)
+		} else {
+			shouldReplace = "Y"
+		}
+		if len(shouldReplace) == 0 || shouldReplace[0] != 'Y' {
+			continue
+		}
+		downloadPath := ""
+		apiKeyVal := ""
+		dstPath := ""
+		if f == certPath {
+			fmt.Printf("Enter your user certficate filename: ")
+			fmt.Scanf("%s", &downloadPath)
+			dstPath = certPath
+		} else if f == keyPath {
+			fmt.Printf("Enter your user key filename: ")
+			fmt.Scanf("%s", &downloadPath)
+			dstPath = keyPath
+		} else {
+			fmt.Printf("Enter your API key: ")
+			fmt.Scanf("%s", &apiKeyVal)
+			dstPath = apiKeyPath
+		}
+
+		if downloadPath != "" {
+			err = util.CopyFile(downloadPath, dstPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Could not install %v: %v\n", dstPath, err)
+				os.Exit(1)
+			}
+		} else {
+			err = ioutil.WriteFile(dstPath, []byte(apiKeyVal), 0400)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Could not install %v: %v\n", dstPath, err)
+				os.Exit(1)
+			}
 		}
 	}
 
-	if haveExisting {
-		fmt.Printf("Your user cert & key are already installed\n")
-	} else {
-		var downloadedCertPath string
-		var downloadedKeyPath string
-
-		fmt.Printf("Enter your user certficate filename: ")
-		fmt.Scanf("%s", &downloadedCertPath)
-		fmt.Printf("Enter your user key filename: ")
-		fmt.Scanf("%s", &downloadedKeyPath)
-
-		err = util.CopyFile(downloadedCertPath, certPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not install cert: %v\n", err)
-			os.Exit(1)
-		}
-		err = util.CopyFile(downloadedKeyPath, keyPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not install key: %v\n", err)
-			os.Exit(1)
+	for _, f := range []string{certPath, keyPath, apiKeyPath} {
+		_, err = os.Stat(f)
+		if os.IsNotExist(err) {
+			haveExisting = false
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not read %v: %v", f, err)
 		}
 	}
 

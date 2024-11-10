@@ -29,7 +29,7 @@ func deployHelpMain(args []string) {
 }
 
 func deployListMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -62,7 +62,7 @@ func deployListMain(args []string) {
 
 	// @todo add envId
 	deployments, err := bopsdk.ListDeployments(opts.common.projectId, "",
-		bopsdk.DeployOptHttpClient(httpClient))
+		sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -105,7 +105,7 @@ func deployMain(args []string) {
 }
 
 func deployDescribeMain(args []string) {
-	httpClient, err := getHttpClientFromCreds()
+	sdkOpts, err := getAuthSdkOpts()
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to get user creds; did you run bompatic config? err: %v\n",
@@ -134,7 +134,7 @@ func deployDescribeMain(args []string) {
 
 	fmt.Printf("Describing deployId:%v...", opts.common.deployId)
 	deployDesc, err := bopsdk.DescribeDeployment(opts.common.deployId,
-		bopsdk.DeployOptHttpClient(httpClient))
+		sdkOpts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

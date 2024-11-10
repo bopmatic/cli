@@ -5,11 +5,8 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -84,40 +81,6 @@ func setCommonFlags(f *flag.FlagSet, o *commonOpts) {
 		"The starting time in UTC to query; defaults to 48 hours ago.")
 	f.StringVar(&o.endTime, "endtime", "",
 		"The ending time in UTC to query; defaults to now.")
-}
-
-//go:embed truststore.pem
-var bopmaticCaCert []byte
-
-func getHttpClientFromCreds() (*http.Client, error) {
-	certPath, err := getConfigCertPath()
-	if err != nil {
-		return nil, err
-	}
-	keyPath, err := getConfigKeyPath()
-	if err != nil {
-		return nil, err
-	}
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get system cert pool: %w", err)
-	}
-	caCertPool.AppendCertsFromPEM(bopmaticCaCert)
-
-	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read user keypair: %w", err)
-	}
-
-	return &http.Client{
-		Timeout: time.Second * 30,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-				Certificates: []tls.Certificate{clientCert},
-			},
-		},
-	}, nil
 }
 
 func checkAndPrintArchWarning() bool {
