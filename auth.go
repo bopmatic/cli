@@ -5,17 +5,23 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	_ "embed"
 
 	bopsdk "github.com/bopmatic/sdk/golang"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 )
 
 //go:embed truststore.pem
@@ -84,4 +90,63 @@ func getAuthSdkOpts() ([]bopsdk.DeployOption, error) {
 	}
 
 	return opts, nil
+}
+
+func login(ctx context.Context) (bopsdk.DeployOption, error) {
+	const clientId = "79qsr4af7jrrsm8f6lfi12aqlv"
+	const region = "us-east-2"
+
+	fmt.Printf("Bopmatic username: ")
+	var username string
+	fmt.Scanf("%s", &username)
+	username = strings.TrimSpace(username)
+	fmt.Printf("         password: ")
+	var passwd string
+	fmt.Scanf("%s", &passwd)
+
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return nil, err
+	}
+
+	cip := cognitoidentityprovider.NewFromConfig(cfg)
+	input := &cognitoidentityprovider.InitiateAuthInput{
+		AuthFlow: "USER_PASSWORD_AUTH",
+		AuthParameters: map[string]string{
+			"USERNAME": username,
+			"PASSWORD": passwd,
+		},
+		ClientId: aws.String(clientId),
+	}
+
+	result, err := cip.InitiateAuth(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return bopsdk.DeployOptBearerToken(*result.AuthenticationResult.AccessToken), nil
+}
+
+func getNewApiKey() (string, error) {
+	sdkOpts := make([]bopsdk.DeployOption, 0)
+
+	httpClient, err := getHttpClientFromCreds()
+	if err != nil {
+		return "", err
+	}
+	sdkOpts = append(sdkOpts, bopsdk.DeployOptHttpClient(httpClient))
+	bearerOpt, err := login(context.Background())
+	if err != nil {
+		return "", err
+	}
+	sdkOpts = append(sdkOpts, bearerOpt)
+	apiKeyResp, err := bopsdk.CreateApiKey("bopmatic_cli_key",
+		"api key for bopmatic cli", time.Unix(0, 0).UTC(), sdkOpts...)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Fprintf(os.Stderr, "Created new api key %v\n", apiKeyResp.KeyId)
+
+	return string(apiKeyResp.KeyData), nil
 }

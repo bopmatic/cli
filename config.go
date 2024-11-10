@@ -103,8 +103,11 @@ func configMain(args []string) {
 			fmt.Scanf("%s", &downloadPath)
 			dstPath = keyPath
 		} else {
-			fmt.Printf("Enter your API key: ")
-			fmt.Scanf("%s", &apiKeyVal)
+			apiKeyVal, err = getNewApiKey()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create new api key: %v\n", err)
+				os.Exit(1)
+			}
 			dstPath = apiKeyPath
 		}
 
@@ -115,6 +118,7 @@ func configMain(args []string) {
 				os.Exit(1)
 			}
 		} else {
+			_ = os.Remove(dstPath)
 			err = ioutil.WriteFile(dstPath, []byte(apiKeyVal), 0400)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Could not install %v: %v\n", dstPath, err)
