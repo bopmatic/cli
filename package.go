@@ -255,9 +255,9 @@ func pkgDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nProject:%v PackageId:%v State:%v Size:%v UploadTime:%v\n",
-		pkgDesc.ProjId, pkgDesc.PackageId, pkgDesc.State, pkgDesc.PackageSize,
-		pkgDesc.UploadTime)
+	fmt.Printf("\nPackageId %v:\n\tProjectId: %v\n\tState: %v\n\tSize: %v MiB\n\tUploadTime: %v\n",
+		pkgDesc.PackageId, pkgDesc.ProjId, pkgDesc.State,
+		pkgDesc.PackageSize/1024/1024, unixTime2Utc(pkgDesc.UploadTime))
 
 	switch pkgDesc.State {
 	case pb.PackageState_UPLOADING:
