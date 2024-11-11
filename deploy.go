@@ -140,13 +140,13 @@ func deployDescribeMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nDeployment Id:%v\n\tProject Id:%v\n\tPackage Id:%v\n\tEnvironment Id:%v\n\tType:%v\n\tInitiator:%v\n\tState:%v\n\tDetail:%v\n\tCreate Time:%v\n\tValidation Start Time:%v\n\tBuild Start Time:%v\n\tDeploy Start Time:%v\n\tCompletion Time:%v\n",
+	fmt.Printf("\nDeployment Id:%v\n\tProject Id:%v\n\tPackage Id:%v\n\tEnvironment Id:%v\n\tType:%v\n\tInitiator:%v\n\tState:%v\n\tDetail:%v\n\tCreate Time:           %v\n\tValidation Start Time: %v\n\tBuild Start Time:      %v\n\tDeploy Start Time:     %v\n\tCompletion Time:       %v\n",
 		deployDesc.Id, deployDesc.Header.ProjId, deployDesc.Header.PkgId,
 		deployDesc.Header.EnvId, deployDesc.Header.Type,
 		deployDesc.Header.Initiator, deployDesc.State, deployDesc.StateDetail,
-		deployDesc.CreateTime, deployDesc.ValidationStartTime,
-		deployDesc.BuildStartTime, deployDesc.DeployStartTime,
-		deployDesc.EndTime)
+		unixTime2Utc(deployDesc.CreateTime), unixTime2Utc(deployDesc.ValidationStartTime),
+		unixTime2Utc(deployDesc.BuildStartTime), unixTime2Utc(deployDesc.DeployStartTime),
+		unixTime2Utc(deployDesc.EndTime))
 
 	switch deployDesc.State {
 	case pb.DeploymentState_CREATED:
