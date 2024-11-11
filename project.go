@@ -76,6 +76,107 @@ func projDescribeMain(args []string) {
 	fmt.Printf("\tState: %v\n", projDesc.State)
 	fmt.Printf("\tActive deployments: %v\n", projDesc.ActiveDeployIds)
 	fmt.Printf("\tPending deployments: %v\n", projDesc.PendingDeployIds)
+
+	if len(projDesc.ActiveDeployIds) == 0 {
+		return
+	}
+
+	descSiteReply, err := bopsdk.DescribeSite(opts.projectId, "", sdkOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to describe site: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("\tWebsite: %v\n", descSiteReply.SiteEndpoint)
+	svcList, err := bopsdk.ListServices(opts.projectId, "", sdkOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to list services: %v\n", err)
+		os.Exit(1)
+	}
+	for _, svc := range svcList {
+		fmt.Printf("\tService %v:\n", svc)
+		svcDesc, err := bopsdk.DescribeService(opts.projectId, "", svc, sdkOpts...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to describe service %v: %v\n", svc, err)
+			os.Exit(1)
+		}
+		fmt.Printf("\t\tApi Definition: %v\n", svcDesc.Desc.ApiDef)
+		fmt.Printf("\t\tPort: %v\n", svcDesc.Desc.Port)
+		if len(svcDesc.Desc.DatabaseNames) > 0 {
+			fmt.Printf("\t\tDatabases: ")
+			for _, dbName := range svcDesc.Desc.DatabaseNames {
+				fmt.Printf("%v, ", dbName)
+			}
+			fmt.Printf("\n")
+		}
+		if len(svcDesc.Desc.DatastoreNames) > 0 {
+			fmt.Printf("\t\tDatastores: ")
+			for _, dstoreName := range svcDesc.Desc.DatastoreNames {
+				fmt.Printf("%v, ", dstoreName)
+			}
+			fmt.Printf("\n")
+		}
+		if len(svcDesc.Desc.RpcEndpoints) > 0 {
+			fmt.Printf("\t\tRpc Endpoints:\n")
+			for _, rpcEnd := range svcDesc.Desc.RpcEndpoints {
+				fmt.Printf("\t\t\t%v\n", rpcEnd)
+			}
+		}
+	}
+
+	dbList, err := bopsdk.ListDatabases(opts.projectId, "", sdkOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to list databases: %v\n", err)
+		os.Exit(1)
+	}
+	for _, db := range dbList {
+		fmt.Printf("\tDatabase %v:\n", db)
+		dbDesc, err := bopsdk.DescribeDatabase(opts.projectId, "", db, sdkOpts...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to describe database %v: %v\n", db,
+				err)
+			os.Exit(1)
+		}
+		if len(dbDesc.Desc.ServiceNames) > 0 {
+			fmt.Printf("\t\tServices: ")
+			for _, svcName := range dbDesc.Desc.ServiceNames {
+				fmt.Printf("%v, ", svcName)
+			}
+			fmt.Printf("\n")
+		}
+		if len(dbDesc.Desc.Tables) > 0 {
+			for _, tbl := range dbDesc.Desc.Tables {
+				fmt.Printf("\t\tTable %v:\n", tbl.Name)
+				fmt.Printf("\t\t\tNumRows: %v\n", tbl.NumRows)
+				fmt.Printf("\t\t\tSize: %v MiB\n", tbl.Size/1024/1024)
+			}
+		}
+	}
+
+	dstoreList, err := bopsdk.ListDatastores(opts.projectId, "", sdkOpts...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to list datastores: %v\n", err)
+		os.Exit(1)
+	}
+	for _, dstore := range dstoreList {
+		fmt.Printf("\tDatastore %v:\n", dstore)
+		dstoreDesc, err := bopsdk.DescribeDatastore(opts.projectId, "", dstore,
+			sdkOpts...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to describe datastore %v: %v\n",
+				dstore, err)
+			os.Exit(1)
+		}
+		fmt.Printf("\t\tNumObjects: %v\n", dstoreDesc.Desc.NumObjects)
+		fmt.Printf("\t\tSize: %v MiB\n",
+			dstoreDesc.Desc.CapacityConsumedInBytes/1024/1024)
+		if len(dstoreDesc.Desc.ServiceNames) > 0 {
+			fmt.Printf("\t\tServices: ")
+			for _, svcName := range dstoreDesc.Desc.ServiceNames {
+				fmt.Printf("%v, ", svcName)
+			}
+			fmt.Printf("\n")
+		}
+	}
 }
 
 func setProjIdFromOpts(opts *projOpts) error {
