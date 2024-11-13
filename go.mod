@@ -9,8 +9,9 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.28.3
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.46.5
-	github.com/bopmatic/sdk/golang v0.0.0-20241111213848-4b9c0eb651ab
+	github.com/bopmatic/sdk/golang v0.0.0-20241113201553-27b8d5b59bd7
 	github.com/docker/docker v27.3.1+incompatible
+	golang.org/x/sync v0.9.0
 )
 
 require (
@@ -67,7 +68,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sync v0.9.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241104194629-dd2ea8efbc28 // indirect

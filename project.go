@@ -20,7 +20,9 @@ import (
 	_ "embed"
 
 	bopsdk "github.com/bopmatic/sdk/golang"
+	"github.com/bopmatic/sdk/golang/pb"
 	"github.com/bopmatic/sdk/golang/util"
+	"golang.org/x/sync/errgroup"
 )
 
 type projOpts struct {
@@ -81,24 +83,47 @@ func projDescribeMain(args []string) {
 		return
 	}
 
-	descSiteReply, err := bopsdk.DescribeSite(opts.projectId, "", sdkOpts...)
+	var wg errgroup.Group
+	var descSiteReply *pb.DescribeSiteReply
+	var svcDescList []*pb.DescribeServiceReply
+	var dbDescList []*pb.DescribeDatabaseReply
+	var dstoreDescList []*pb.DescribeDatastoreReply
+
+	wg.Go(func() error {
+		var err error
+		descSiteReply, err = bopsdk.DescribeSite(projDesc.Id, "", sdkOpts...)
+		return err
+	})
+	wg.Go(func() error {
+		var err error
+		svcDescList, err = bopsdk.DescribeAllServices(projDesc.Id, "",
+			sdkOpts...)
+		return err
+	})
+	wg.Go(func() error {
+		var err error
+		dbDescList, err = bopsdk.DescribeAllDatabases(projDesc.Id, "",
+			sdkOpts...)
+		return err
+	})
+	wg.Go(func() error {
+		var err error
+		dstoreDescList, err = bopsdk.DescribeAllDatastores(projDesc.Id, "",
+			sdkOpts...)
+		return err
+	})
+
+	err = wg.Wait()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to describe site: %v\n", err)
+		fmt.Fprintf(os.Stderr,
+			"Failed to retrieve additional project details: %v\n", err)
 		os.Exit(1)
 	}
+
 	fmt.Printf("\tWebsite: %v\n", descSiteReply.SiteEndpoint)
-	svcList, err := bopsdk.ListServices(opts.projectId, "", sdkOpts...)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to list services: %v\n", err)
-		os.Exit(1)
-	}
-	for _, svc := range svcList {
-		fmt.Printf("\tService %v:\n", svc)
-		svcDesc, err := bopsdk.DescribeService(opts.projectId, "", svc, sdkOpts...)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to describe service %v: %v\n", svc, err)
-			os.Exit(1)
-		}
+
+	for _, svcDesc := range svcDescList {
+		fmt.Printf("\tService %v:\n", svcDesc.Desc.SvcHeader.ServiceName)
 		fmt.Printf("\t\tApi Definition: %v\n", svcDesc.Desc.ApiDef)
 		fmt.Printf("\t\tPort: %v\n", svcDesc.Desc.Port)
 		if len(svcDesc.Desc.DatabaseNames) > 0 {
@@ -123,19 +148,8 @@ func projDescribeMain(args []string) {
 		}
 	}
 
-	dbList, err := bopsdk.ListDatabases(opts.projectId, "", sdkOpts...)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to list databases: %v\n", err)
-		os.Exit(1)
-	}
-	for _, db := range dbList {
-		fmt.Printf("\tDatabase %v:\n", db)
-		dbDesc, err := bopsdk.DescribeDatabase(opts.projectId, "", db, sdkOpts...)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to describe database %v: %v\n", db,
-				err)
-			os.Exit(1)
-		}
+	for _, dbDesc := range dbDescList {
+		fmt.Printf("\tDatabase %v:\n", dbDesc.Desc.DatabaseHeader.DatabaseName)
 		if len(dbDesc.Desc.ServiceNames) > 0 {
 			fmt.Printf("\t\tServices: ")
 			for _, svcName := range dbDesc.Desc.ServiceNames {
@@ -152,20 +166,9 @@ func projDescribeMain(args []string) {
 		}
 	}
 
-	dstoreList, err := bopsdk.ListDatastores(opts.projectId, "", sdkOpts...)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to list datastores: %v\n", err)
-		os.Exit(1)
-	}
-	for _, dstore := range dstoreList {
-		fmt.Printf("\tDatastore %v:\n", dstore)
-		dstoreDesc, err := bopsdk.DescribeDatastore(opts.projectId, "", dstore,
-			sdkOpts...)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to describe datastore %v: %v\n",
-				dstore, err)
-			os.Exit(1)
-		}
+	for _, dstoreDesc := range dstoreDescList {
+		fmt.Printf("\tDatastore %v:\n",
+			dstoreDesc.Desc.DatastoreHeader.DatastoreName)
 		fmt.Printf("\t\tNumObjects: %v\n", dstoreDesc.Desc.NumObjects)
 		fmt.Printf("\t\tSize: %v MiB\n",
 			dstoreDesc.Desc.CapacityConsumedInBytes/1024/1024)
