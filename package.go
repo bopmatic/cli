@@ -267,7 +267,7 @@ func pkgDescribeMain(args []string) {
 	case pb.PackageState_PKG_VALIDATING:
 		fmt.Printf("\nBopmatic ServiceRunner is validating your project package\n")
 	case pb.PackageState_INVALID:
-		fmt.Printf("\nSomething is wrong with your project package and it cannot be deployed. Please delete it with:\n\t'bopmatic destroy --pkgid %v\n",
+		fmt.Printf("\nSomething is wrong with your project package and it cannot	be deployed. Please delete it with:\n\t'bopmatic package destroy --pkgid %v'\n",
 			pkgDesc.PackageId)
 	case pb.PackageState_PKG_BUILDING:
 		fmt.Printf("\nBopmatic ServiceRunner is building infrastructure for your project package\n")

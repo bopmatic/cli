@@ -6,8 +6,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -23,40 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 )
-
-//go:embed truststore.pem
-var bopmaticCaCert []byte
-
-func getHttpClientFromCreds() (*http.Client, error) {
-	certPath, err := getConfigCertPath()
-	if err != nil {
-		return nil, err
-	}
-	keyPath, err := getConfigKeyPath()
-	if err != nil {
-		return nil, err
-	}
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get system cert pool: %w", err)
-	}
-	caCertPool.AppendCertsFromPEM(bopmaticCaCert)
-
-	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read user keypair: %w", err)
-	}
-
-	return &http.Client{
-		Timeout: time.Second * 30,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-				Certificates: []tls.Certificate{clientCert},
-			},
-		},
-	}, nil
-}
 
 func getApiKey() (string, error) {
 	keyPath, err := getConfigApiKeyPath()
@@ -74,9 +38,8 @@ func getApiKey() (string, error) {
 func getAuthSdkOpts() ([]bopsdk.DeployOption, error) {
 	opts := make([]bopsdk.DeployOption, 0)
 
-	httpClient, err := getHttpClientFromCreds()
-	if err != nil {
-		return opts, err
+	httpClient := &http.Client{
+		Timeout: time.Second * 30,
 	}
 	opts = append(opts, bopsdk.DeployOptHttpClient(httpClient))
 
@@ -130,9 +93,8 @@ func login(ctx context.Context) (bopsdk.DeployOption, error) {
 func getNewApiKey() (string, error) {
 	sdkOpts := make([]bopsdk.DeployOption, 0)
 
-	httpClient, err := getHttpClientFromCreds()
-	if err != nil {
-		return "", err
+	httpClient := &http.Client{
+		Timeout: time.Second * 30,
 	}
 	sdkOpts = append(sdkOpts, bopsdk.DeployOptHttpClient(httpClient))
 	bearerOpt, err := login(context.Background())
