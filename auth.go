@@ -90,6 +90,15 @@ func login(ctx context.Context) (bopsdk.DeployOption, error) {
 	return bopsdk.DeployOptBearerToken(*result.AuthenticationResult.AccessToken), nil
 }
 
+func getHostName() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "localhost"
+	}
+
+	return hostname
+}
+
 func getNewApiKey() (string, error) {
 	sdkOpts := make([]bopsdk.DeployOption, 0)
 
@@ -97,18 +106,97 @@ func getNewApiKey() (string, error) {
 		Timeout: time.Second * 30,
 	}
 	sdkOpts = append(sdkOpts, bopsdk.DeployOptHttpClient(httpClient))
-	bearerOpt, err := login(context.Background())
-	if err != nil {
-		return "", err
-	}
-	sdkOpts = append(sdkOpts, bearerOpt)
-	apiKeyResp, err := bopsdk.CreateApiKey("bopmatic_cli_key",
-		"api key for bopmatic cli", time.Unix(0, 0).UTC(), sdkOpts...)
-	if err != nil {
-		return "", err
+
+	var sb strings.Builder
+	sb.WriteString("How would you like to setup your api key?\n")
+	sb.WriteString("1. Paste key data from one you already created at https://console.bopmatic.com/api-keys\n")
+	sb.WriteString("2. Login here with your Bopmatic user/password and have bopmatic CLI create one for you\n")
+	sb.WriteString("3. I don't have an account with Bopmatic yet and would like to request access\n")
+	sb.WriteString("Answer (1, 2, or 3) [1]: ")
+	fmt.Printf("%v", sb.String())
+	var answer string
+	fmt.Scanf("%s", &answer)
+	answer = strings.TrimSpace(answer)
+	if answer == "" {
+		answer = "1"
 	}
 
-	fmt.Fprintf(os.Stderr, "Created new api key %v\n", apiKeyResp.KeyId)
+	switch answer {
+	case "1":
+		return getKeyDataViaUser()
+	case "2":
+		bearerOpt, err := login(context.Background())
+		if err != nil {
+			return "", err
+		}
+		sdkOpts = append(sdkOpts, bearerOpt)
+		apiKeyResp, err := bopsdk.CreateApiKey(
+			fmt.Sprintf("%v_cli_key", getHostName()),
+			fmt.Sprintf("api key for bopmatic cli on %v", getHostName()),
+			time.Unix(0, 0).UTC(), sdkOpts...)
+		if err != nil {
+			return "", err
+		}
 
-	return string(apiKeyResp.KeyData), nil
+		fmt.Fprintf(os.Stderr, "Created new api key %v\n", apiKeyResp.KeyId)
+
+		return string(apiKeyResp.KeyData), nil
+	case "3":
+		return "", requestAccess()
+	default:
+	}
+
+	return "", fmt.Errorf("Invalid response; please enter 1, 2, or 3")
+}
+
+func getKeyDataViaUser() (string, error) {
+	var keyData string
+	fmt.Printf("Paste the key data you copied to the clipboard and press enter:	")
+	fmt.Scanf("%s", &keyData)
+	keyData = strings.TrimSpace(keyData)
+	if len(keyData) == 0 || keyData[len(keyData)-1] != '=' {
+		return "", fmt.Errorf("invalid key data")
+	}
+
+	return keyData, nil
+}
+
+func requestAccess() error {
+	type promptEntry struct {
+		key   string
+		value *string
+	}
+
+	var firstName, lastName, email, userName string
+	prompts := []promptEntry{
+		{key: "First Name", value: &firstName},
+		{key: "Last Name", value: &lastName},
+		{key: "Email address", value: &email},
+		{key: "Desired Bopmatic username", value: &userName},
+	}
+
+	for _, p := range prompts {
+		for {
+			fmt.Printf("%v: ", p.key)
+			fmt.Scanf("%s", p.value)
+			*p.value = strings.TrimSpace(*p.value)
+			if len(*p.value) > 0 {
+				break
+			}
+		}
+	}
+	for _, p := range prompts {
+		fmt.Fprintf(os.Stderr, "%v: %v\n", p.key, *p.value)
+	}
+
+	httpClient := &http.Client{
+		Timeout: time.Second * 30,
+	}
+	err := bopsdk.RequestAccess(userName, firstName, lastName, email, "", "",
+		bopsdk.DeployOptHttpClient(httpClient))
+	if err == nil {
+		err = fmt.Errorf("A request for an account on bopmatic.com was submitted on your behalf. A representative will respond to you shortly via email.")
+	}
+
+	return err
 }
