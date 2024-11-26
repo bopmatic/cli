@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.32.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.5
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.47.0
-	github.com/bopmatic/sdk/golang v0.0.0-20241125185355-356431cfcce3
+	github.com/bopmatic/sdk/golang v0.0.0-20241126002111-138448f08d29
 	github.com/docker/docker v27.3.1+incompatible
 	golang.org/x/sync v0.9.0
 )
