@@ -52,12 +52,12 @@ func printExampleCurl(descReply *pb.DescribePackageReply) {
 	// @todo re-implement w/ ListServices() && DescribeService()
 }
 
-func unixTime2Local(secs uint64) time.Time {
-	return time.Unix(int64(secs), 0)
+func unixTime2Local(msecs uint64) time.Time {
+	return time.UnixMilli(int64(msecs))
 }
 
-func unixTime2Utc(secs uint64) time.Time {
-	return unixTime2Local(secs).UTC()
+func unixTime2Utc(msecs uint64) time.Time {
+	return unixTime2Local(msecs).UTC()
 }
 
 //go:embed help.txt

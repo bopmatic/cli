@@ -133,7 +133,7 @@ func getNewApiKey() (string, error) {
 		apiKeyResp, err := bopsdk.CreateApiKey(
 			fmt.Sprintf("%v_cli_key", getHostName()),
 			fmt.Sprintf("api key for bopmatic cli on %v", getHostName()),
-			time.Unix(0, 0).UTC(), sdkOpts...)
+			time.UnixMilli(0).UTC(), sdkOpts...)
 		if err != nil {
 			return "", err
 		}
