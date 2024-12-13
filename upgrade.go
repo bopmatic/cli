@@ -119,7 +119,7 @@ func upgradeBuildContainer(args []string) {
 
 		fmt.Printf("Update Bopmatic Build Image? (Y/N) [Y]: ")
 	} else {
-		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 975MiB(compressed) in size.\n")
+		fmt.Printf("Bopmatic needs to download the Bopmatic Build Image in order to build projects. It is roughly 775MiB(compressed) in size.\n")
 		fmt.Printf("Download Bopmatic Build Image? (Y/N) [Y]: ")
 	}
 	shouldDownload := "Y"
