@@ -60,6 +60,13 @@ func unixTime2Utc(msecs uint64) time.Time {
 	return unixTime2Local(msecs).UTC()
 }
 
+func unixTime2UtcStr(msecs uint64) string {
+	if msecs == 0 {
+		return ""
+	}
+	return unixTime2Utc(msecs).String()
+}
+
 //go:embed help.txt
 var helpText string
 

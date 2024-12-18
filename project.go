@@ -73,7 +73,7 @@ func projDescribeMain(args []string) {
 	fmt.Printf("\tName: %v\n", projDesc.Header.Name)
 	fmt.Printf("\tDnsPrefix: %v\n", projDesc.Header.DnsPrefix)
 	fmt.Printf("\tDnsDomain: %v\n", projDesc.Header.DnsDomain)
-	fmt.Printf("\tCreated: %v (%v)\n", unixTime2Utc(projDesc.CreateTime),
+	fmt.Printf("\tCreated: %v (%v)\n", unixTime2UtcStr(projDesc.CreateTime),
 		unixTime2Local(projDesc.CreateTime))
 	fmt.Printf("\tState: %v\n", projDesc.State)
 	fmt.Printf("\tActive deployments: %v\n", projDesc.ActiveDeployIds)
@@ -537,7 +537,7 @@ func projDeactivateMain(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Started\nDeactivationg takes about 10 minutes. You can check progress with:\n\t'bopmatic deploy describe --deployid %v'\n",
+	fmt.Printf("Started\nDeactivating takes about 10 minutes. You can check progress with:\n\t'bopmatic deploy describe --deployid %v'\n",
 		deployId)
 }
 

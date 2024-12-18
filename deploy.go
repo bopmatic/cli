@@ -144,9 +144,11 @@ func deployDescribeMain(args []string) {
 		deployDesc.Id, deployDesc.Header.ProjId, deployDesc.Header.PkgId,
 		deployDesc.Header.EnvId, deployDesc.Header.Type,
 		deployDesc.Header.Initiator, deployDesc.State, deployDesc.StateDetail,
-		unixTime2Utc(deployDesc.CreateTime), unixTime2Utc(deployDesc.ValidationStartTime),
-		unixTime2Utc(deployDesc.BuildStartTime), unixTime2Utc(deployDesc.DeployStartTime),
-		unixTime2Utc(deployDesc.EndTime))
+		unixTime2UtcStr(deployDesc.CreateTime),
+		unixTime2UtcStr(deployDesc.ValidationStartTime),
+		unixTime2UtcStr(deployDesc.BuildStartTime),
+		unixTime2UtcStr(deployDesc.DeployStartTime),
+		unixTime2UtcStr(deployDesc.EndTime))
 
 	switch deployDesc.State {
 	case pb.DeploymentState_CREATED:
@@ -158,7 +160,7 @@ func deployDescribeMain(args []string) {
 	case pb.DeploymentState_DEPLOYING:
 		fmt.Printf("\nBopmatic ServiceRunner is deploying your package into production\n")
 	case pb.DeploymentState_SUCCESS:
-		fmt.Printf("\nBopmatic ServiceRunner has successully completed this	deployment of your package\n")
+		fmt.Printf("\nBopmatic ServiceRunner has successully completed this deployment of your package\n")
 	case pb.DeploymentState_FAILED:
 		fallthrough
 	case pb.DeploymentState_UNKNOWN_DEPLOY_STATE:
