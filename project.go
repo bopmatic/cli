@@ -264,7 +264,7 @@ func fetchTemplateSet(subdirs []string) map[string]ProjTemplate {
 
 func fetchTemplates() (serviceTemplates, clientTemplates map[string]ProjTemplate) {
 
-	supportedLanguages := []string{"golang", "java", "python"}
+	supportedLanguages := []string{"golang", "java", "python", "nodejs"}
 
 	serviceTemplates = fetchTemplateSet(supportedLanguages)
 
