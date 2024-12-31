@@ -83,17 +83,6 @@ func logsMain(args []string) {
 	}
 
 	var startTime, endTime time.Time
-	const DefaultLogWindow = 48 * time.Hour
-	if opts.common.startTime == "" {
-		startTime = time.Now().UTC().Add(-DefaultLogWindow)
-	} else {
-		startTime, err = dateparse.ParseAny(opts.common.startTime)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not parse start time(%v): %v\n",
-				opts.common.startTime, err)
-			os.Exit(1)
-		}
-	}
 	if opts.common.endTime == "" {
 		endTime = time.Now().UTC()
 	} else {
@@ -101,6 +90,18 @@ func logsMain(args []string) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not parse end time(%v): %v\n",
 				opts.common.endTime, err)
+			os.Exit(1)
+		}
+	}
+
+	const DefaultLogWindow = 48 * time.Hour
+	if opts.common.startTime == "" {
+		startTime = endTime.Add(-DefaultLogWindow)
+	} else {
+		startTime, err = dateparse.ParseAny(opts.common.startTime)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not parse start time(%v): %v\n",
+				opts.common.startTime, err)
 			os.Exit(1)
 		}
 	}

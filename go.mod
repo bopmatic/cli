@@ -28,6 +28,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.2 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
+	github.com/bopmatic/sdk v0.32.4 // indirect
 	github.com/dapr/dapr v1.14.0 // indirect
 	github.com/dapr/go-sdk v1.11.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
