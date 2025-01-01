@@ -188,13 +188,12 @@ func pkgListMain(args []string) {
 		}
 	}
 
-	// @todo project filter not yet implemented
-	//if opts.common.projectName == "" {
-	fmt.Printf("Listing packages for all projects...")
-	//} else {
-	//	fmt.Printf("Listing packages for project %v...",
-	//		opts.common.projectName)
-	//}
+	if opts.common.projectId == "" {
+		fmt.Printf("Listing packages for all projects...")
+	} else {
+		fmt.Printf("Listing packages for project %v...",
+			opts.common.projectId)
+	}
 
 	pkgs, err := bopsdk.ListPackages(opts.common.projectId, sdkOpts...)
 	if err != nil {
@@ -205,7 +204,7 @@ func pkgListMain(args []string) {
 	if len(pkgs) == 0 {
 		fmt.Printf("\nNo currently deployed packages\n")
 	} else {
-		fmt.Printf("\nProject\t\tPackageId\n")
+		fmt.Printf("\nProjectId\t\t\tPackageId\n")
 
 		for _, pkg := range pkgs {
 			fmt.Printf("%v\t\t%v\n", pkg.ProjId, pkg.PackageId)

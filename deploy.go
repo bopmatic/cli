@@ -58,7 +58,7 @@ func deployListMain(args []string) {
 		}
 	}
 
-	fmt.Printf("Listing deployments for projId:%v...", opts.common.projectId)
+	fmt.Printf("Listing deployments for project %v...", opts.common.projectId)
 
 	// @todo add envId
 	deployments, err := bopsdk.ListDeployments(opts.common.projectId, "",
@@ -71,7 +71,7 @@ func deployListMain(args []string) {
 	if len(deployments) == 0 {
 		fmt.Printf("\nNo currently deployed packages\n")
 	} else {
-		fmt.Printf("\nDeployment Id\n")
+		fmt.Printf("\nDeploymentId\n")
 
 		for _, deployId := range deployments {
 			fmt.Printf("%v\n", deployId)
