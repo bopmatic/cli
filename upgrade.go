@@ -130,7 +130,7 @@ func upgradeBuildContainer(args []string) {
 		pullBopmaticImage()
 
 		if !haveBuildImg {
-			fmt.Printf("To create a bopmatic project, next run:\n\t'bopmatic new'\n")
+			fmt.Printf("To create a bopmatic project, next run:\n\t'bopmatic project create'\n")
 		}
 	}
 }

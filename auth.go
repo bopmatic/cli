@@ -56,7 +56,7 @@ func getAuthSdkOpts() ([]bopsdk.DeployOption, error) {
 }
 
 func login(ctx context.Context) (bopsdk.DeployOption, error) {
-	const clientId = "79qsr4af7jrrsm8f6lfi12aqlv"
+	const clientId = "3lif6p1jpede05fd6feumimu3v"
 	const region = "us-east-2"
 
 	fmt.Printf("Bopmatic username: ")
