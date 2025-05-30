@@ -393,13 +393,9 @@ func createProjectFromTemplate(serviceTemplates, clientTemplates map[string]Proj
 	}
 
 	// set the created project's name
-	// @todo find a cleaner way to replace the project name
 	projectDir = filepath.Join(".", projectName)
 	projectFile = filepath.Join(projectDir, "Bopmatic.yaml")
-	projectMakefile := filepath.Join(projectDir, "Makefile")
-	clientMakefile := filepath.Join(projectDir, ClientTemplateSubdir, "Makefile")
 	templateToken := filepath.Join(projectDir, "template_replace_keyword")
-
 	templateKeyword, err := ioutil.ReadFile(templateToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to set project name %v: %v", projectName,
@@ -407,13 +403,25 @@ func createProjectFromTemplate(serviceTemplates, clientTemplates map[string]Proj
 		os.Exit(1)
 	}
 
-	replaceTemplateKeywordInFile(projectFile, string(templateKeyword),
-		projectName, false)
-	replaceTemplateKeywordInFile(projectMakefile, string(templateKeyword),
-		projectName, true)
-	if ok {
-		replaceTemplateKeywordInFile(clientMakefile, string(templateKeyword),
-			projectName, true)
+	// @todo find a cleaner way to replace the project name
+	projectSources := []string{
+		projectFile,
+		filepath.Join(projectDir, "Makefile"),
+		filepath.Join(projectDir, ClientTemplateSubdir, "Makefile"),
+		filepath.Join(projectDir, "cmd", "order_server", "main.go"),
+		filepath.Join(projectDir, "src", "main", "java", "com", "bopmatic",
+			"order", "MyOrderServiceServer.java"),
+		filepath.Join(projectDir, "order_server.py"),
+		filepath.Join(projectDir, "order_server.js"),
+	}
+	for _, srcFile := range projectSources {
+		_, err = os.Stat(srcFile)
+		if err != nil {
+			continue
+		}
+
+		replaceTemplateKeywordInFile(srcFile, string(templateKeyword),
+			projectName, false)
 	}
 
 	_ = os.Remove(templateToken)
