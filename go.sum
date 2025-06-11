@@ -34,8 +34,8 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.33.21 h1:nyLjs8sYJShFYj6aiyjCBI3EcLn
 github.com/aws/aws-sdk-go-v2/service/sts v1.33.21/go.mod h1:EhdxtZ+g84MSGrSrHzZiUm9PYiZkrADNja15wtRJSJo=
 github.com/aws/smithy-go v1.22.2 h1:6D9hW43xKFrRx/tXXfAlIZc4JI+yQe6snnWcQyxSyLQ=
 github.com/aws/smithy-go v1.22.2/go.mod h1:irrKGvNn1InZwb2d7fkIRNucdfwR8R+Ts3wxYa/cJHg=
-github.com/bopmatic/sdk/golang v0.0.0-20250609200042-6ca0ce7ec649 h1:Cmyn35h9deSvLKqQjgZsiSB1VBtmpa8CWPi8cYCsTD8=
-github.com/bopmatic/sdk/golang v0.0.0-20250609200042-6ca0ce7ec649/go.mod h1:6bXFlKJ6qPQJ1h1XUKSJePy19HO2kOd2qmpofBG/XVI=
+github.com/bopmatic/sdk/golang v0.0.0-20250611205655-f194855c5b19 h1:1hA/XdenkuJMGZ6hMCtL04ach8Et7SHm8XSODjrBhgM=
+github.com/bopmatic/sdk/golang v0.0.0-20250611205655-f194855c5b19/go.mod h1:6bXFlKJ6qPQJ1h1XUKSJePy19HO2kOd2qmpofBG/XVI=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
